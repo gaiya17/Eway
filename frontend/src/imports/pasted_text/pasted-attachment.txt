@@ -1,0 +1,118 @@
+Fix the page structure of the EWAY LMS public website and authentication pages.
+
+IMPORTANT:
+The Landing Page and Authentication Pages must be completely separate screens.
+
+Current problem:
+The Home page navbar and layout are overlapping with the Login/Register pages.
+
+--------------------------------------------------
+
+REQUIRED PAGE STRUCTURE
+
+Create 4 completely separate frames/pages:
+
+1. Landing Page
+2. Login Page
+3. Register Page
+4. Forgot Password Page
+
+--------------------------------------------------
+
+LANDING PAGE RULES
+
+The Landing Page contains:
+- Home
+- About
+- Gallery
+- Contact
+- Navbar with Login and Register buttons
+
+This navbar belongs ONLY to the landing page.
+
+--------------------------------------------------
+
+AUTH PAGE RULES
+
+Login, Register, and Forgot Password must each be separate full-page screens.
+
+These auth pages must NOT reuse the landing page navbar.
+
+Do not place them inside the landing page content frame.
+
+Do not overlay them under the landing page header.
+
+Each auth page should have its own clean top area and full viewport layout.
+
+--------------------------------------------------
+
+REGISTER PAGE STRUCTURE
+
+Full screen split layout:
+
+LEFT SIDE:
+- Branding / hero panel
+- EWAY Institute logo
+- Title
+- supporting text
+- feature bullet points
+
+RIGHT SIDE:
+- Register form card
+- centered vertically
+- proper spacing
+- no overlap with any public navbar
+
+--------------------------------------------------
+
+LOGIN PAGE STRUCTURE
+
+Full screen split layout:
+
+LEFT SIDE:
+- branding / hero panel
+
+RIGHT SIDE:
+- login form card
+
+No public landing page navbar visible.
+
+--------------------------------------------------
+
+FORGOT PASSWORD PAGE STRUCTURE
+
+Use same authentication layout style as login/register.
+
+No overlap with landing page components.
+
+--------------------------------------------------
+
+LAYOUT RULES
+
+- Each page must start at the top of its own frame
+- Do not use the landing page navbar on auth pages
+- Do not nest auth pages inside landing page sections
+- Use separate parent containers for each page
+- Keep full viewport height for auth pages
+- Make sure top spacing and page containers are independent
+
+--------------------------------------------------
+
+NAVIGATION RULES
+
+Landing page:
+- Login button → open Login Page
+- Register button → open Register Page
+
+Login page:
+- "Don't have an account? Register" → open Register Page
+- "Forgot Password?" → open Forgot Password Page
+
+Register page:
+- "Already have an account? Login" → open Login Page
+
+--------------------------------------------------
+
+GOAL
+
+Fix the overlap issue by separating the landing page and authentication pages into independent full-screen frames while preserving the EWAY LMS dark glassmorphism style.
