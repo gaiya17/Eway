@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import { AIChat } from './ai-chat';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { ImageWithFallback } from '../ui/image-with-fallback';
 import apiClient from '@/api/api-client';
 import {
   ArrowLeft, BookOpen, Play, CheckCircle, Clock, Plus,

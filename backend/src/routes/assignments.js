@@ -1,19 +1,27 @@
+/**
+ * Assignment Routes
+ * Handles creation, submission, and management of class assignments.
+ */
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { createClient } = require('@supabase/supabase-js');
+const { supabaseAdmin } = require('../config/supabase');
 const { verifyToken, verifyTeacher, verifyStudent } = require('../middleware/auth');
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-
+/**
+ * Configure Multer for in-memory file uploads
+ */
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
 });
 
-// GET assignments for a specific class
+/**
+ * @route   GET /api/assignments/class/:classId
+ * @desc    Get all assignments for a specific class including submissions
+ * @access  Private (Authenticated)
+ */
 router.get('/class/:classId', verifyToken, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -29,12 +37,17 @@ router.get('/class/:classId', verifyToken, async (req, res) => {
   }
 });
 
-// POST Create Assignment (Teacher only)
+/**
+ * @route   POST /api/assignments/create
+ * @desc    Create a new assignment for a class
+ * @access  Private (Teacher/Admin only)
+ */
 router.post('/create', verifyToken, verifyTeacher, upload.single('file'), async (req, res) => {
   try {
     const { class_id, title, description, deadline } = req.body;
     let fileUrl = null;
 
+    // Handle optional file attachment from teacher
     if (req.file) {
       const fileName = `${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
@@ -44,9 +57,7 @@ router.post('/create', verifyToken, verifyTeacher, upload.single('file'), async 
           upsert: true
         });
       
-      if (uploadError) {
-          throw uploadError;
-      }
+      if (uploadError) throw uploadError;
       
       const { data: publicUrlData } = supabaseAdmin.storage
         .from('assignments')
@@ -55,7 +66,7 @@ router.post('/create', verifyToken, verifyTeacher, upload.single('file'), async 
       fileUrl = publicUrlData.publicUrl;
     }
 
-    // Insert Assignment
+    // Create Assignment Record
     const { data: assignment, error: insertError } = await supabaseAdmin
       .from('assignments')
       .insert({
@@ -71,8 +82,12 @@ router.post('/create', verifyToken, verifyTeacher, upload.single('file'), async 
 
     if (insertError) throw insertError;
 
-    // Send Realtime Notification to all enrolled students
-    const { data: enrollments } = await supabaseAdmin.from('enrollments').select('student_id').eq('class_id', class_id);
+    // Send Notification to all enrolled students
+    const { data: enrollments } = await supabaseAdmin
+      .from('enrollments')
+      .select('student_id')
+      .eq('class_id', class_id);
+
     if (enrollments && enrollments.length > 0) {
        const notificationsToInsert = enrollments.map(e => ({
           recipient_id: e.student_id,
@@ -92,19 +107,33 @@ router.post('/create', verifyToken, verifyTeacher, upload.single('file'), async 
   }
 });
 
-// POST Submit Homework (Student only)
+/**
+ * @route   POST /api/assignments/:id/submit
+ * @desc    Submit student homework for an assignment
+ * @access  Private (Student/Admin only)
+ */
 router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    if (!req.file) return res.status(400).json({ error: 'File is required.' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Submission file is required.' });
+    }
 
-    // Verify assignment exists and get deadline
-    const { data: assignment } = await supabaseAdmin.from('assignments').select('deadline, teacher_id').eq('id', assignmentId).single();
-    if (!assignment) return res.status(404).json({ error: 'Assignment not found.' });
+    // Verify assignment exists and check deadline
+    const { data: assignment } = await supabaseAdmin
+      .from('assignments')
+      .select('deadline, teacher_id')
+      .eq('id', assignmentId)
+      .single();
+
+    if (!assignment) {
+      return res.status(404).json({ error: 'Assignment not found.' });
+    }
 
     const isLate = new Date() > new Date(assignment.deadline);
     const status = isLate ? 'Late' : 'Submitted';
 
+    // Upload submission file
     const fileName = `${req.user.id}_${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from('assignments')
@@ -121,6 +150,7 @@ router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), as
 
     const fileUrl = publicUrlData.publicUrl;
 
+    // Create Submission Record
     const { data: submission, error: submitError } = await supabaseAdmin
       .from('submissions')
       .insert({
@@ -134,7 +164,7 @@ router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), as
 
     if (submitError) throw submitError;
 
-    // Notify Teacher
+    // Notify Teacher of the submission
     await supabaseAdmin.from('notifications').insert({
        recipient_id: assignment.teacher_id,
        recipient_role: 'Teacher',
@@ -150,7 +180,11 @@ router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), as
   }
 });
 
-// DELETE Assignment (Teacher only)
+/**
+ * @route   DELETE /api/assignments/:id
+ * @desc    Delete an assignment
+ * @access  Private (Teacher/Admin only)
+ */
 router.delete('/:id', verifyToken, verifyTeacher, async (req, res) => {
   try {
      const { error } = await supabaseAdmin.from('assignments').delete().eq('id', req.params.id);

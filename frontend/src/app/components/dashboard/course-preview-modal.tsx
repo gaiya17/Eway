@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GlassCard } from '../glass-card';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { ImageWithFallback } from '../ui/image-with-fallback';
 import {
   X,
   Star,

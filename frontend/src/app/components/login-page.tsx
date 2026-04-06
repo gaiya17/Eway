@@ -11,6 +11,13 @@ interface LoginPageProps {
   onLoginSuccess?: (role: 'student' | 'teacher' | 'staff' | 'admin') => void;
 }
 
+/**
+ * Login Page Component
+ * Handles user authentication, validation, and role-based redirects.
+ * 
+ * @param {Object} props
+ * @param {LoginPageProps} props - Component props
+ */
 export function LoginPage({
   onBackToHome,
   onRegisterClick,

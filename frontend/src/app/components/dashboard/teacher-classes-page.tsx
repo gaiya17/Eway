@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { ImageWithFallback } from '../ui/image-with-fallback';
 import apiClient from '@/api/api-client';
 import {
   ArrowLeft, BookOpen, Users, CheckCircle, Clock, Video, MapPin,

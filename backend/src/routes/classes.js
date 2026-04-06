@@ -1,25 +1,39 @@
+/**
+ * Class Management Routes
+ * Handles scheduling, material uploads, enrollments, and status updates for LMS courses.
+ */
+
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { supabaseAdmin } = require('../config/supabase');
+const { verifyToken, verifyAdmin, verifyTeacher, verifyStaff } = require('../middleware/auth');
 require('dotenv').config();
 
-// Multer setup for PDF uploads
+// File upload configuration
 const materialsDir = path.join(__dirname, '../../uploads/materials');
-if (!fs.existsSync(materialsDir)) fs.mkdirSync(materialsDir, { recursive: true });
+const slipsDir = path.join(__dirname, '../../uploads/slips');
 
-const storage = multer.diskStorage({
+// Ensure upload directories exist
+[materialsDir, slipsDir].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+/**
+ * Multer storage for class PDF materials
+ */
+const materialStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, materialsDir),
   filename: (req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     cb(null, `${unique}-${file.originalname}`);
   }
 });
-const upload = multer({
-  storage,
+
+const uploadMaterial = multer({
+  storage: materialStorage,
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/pdf') cb(null, true);
     else cb(new Error('Only PDF files are allowed'));
@@ -27,47 +41,9 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
 });
 
-// Middleware to verify JWT
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) return res.status(401).json({ error: 'Access denied' });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
-    req.user = user;
-    next();
-  });
-};
-
-// Middleware to verify Admin role
-const verifyAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ error: 'Access denied. Admin role required.' });
-  }
-};
-
-// Middleware to verify Teacher role
-const verifyTeacher = (req, res, next) => {
-  if (req.user && (req.user.role === 'teacher' || req.user.role === 'admin')) {
-    next();
-  } else {
-    res.status(403).json({ error: 'Access denied. Teacher role required.' });
-  }
-};
-
-// Middleware to verify Staff or Admin role
-const verifyStaff = (req, res, next) => {
-  if (req.user && (req.user.role === 'staff' || req.user.role === 'admin')) next();
-  else res.status(403).json({ error: 'Access denied. Staff or Admin role required.' });
-};
-
-// Multer for bank slip uploads (images + PDFs)
-const slipsDir = path.join(__dirname, '../../uploads/slips');
-if (!fs.existsSync(slipsDir)) fs.mkdirSync(slipsDir, { recursive: true });
+/**
+ * Multer storage for bank payment slips
+ */
 const slipStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, slipsDir),
   filename: (req, file, cb) => {
@@ -75,6 +51,7 @@ const slipStorage = multer.diskStorage({
     cb(null, `slip-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
   }
 });
+
 const uploadSlip = multer({
   storage: slipStorage,
   fileFilter: (req, file, cb) => {
@@ -82,16 +59,20 @@ const uploadSlip = multer({
     if (allowed.includes(file.mimetype)) cb(null, true);
     else cb(new Error('Only JPG, PNG, or PDF files are allowed'));
   },
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
 });
 
 // ──────────────────────────────────────────────
 // FILE UPLOAD ROUTES
 // ──────────────────────────────────────────────
 
-// Upload a PDF file for a class material
+/**
+ * @route   POST /api/classes/upload-pdf
+ * @desc    Upload a PDF material for a class
+ * @access  Private (Teacher/Admin)
+ */
 router.post('/upload-pdf', verifyToken, verifyTeacher, (req, res) => {
-  upload.single('file')(req, res, (err) => {
+  uploadMaterial.single('file')(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -102,10 +83,15 @@ router.post('/upload-pdf', verifyToken, verifyTeacher, (req, res) => {
 });
 
 // ──────────────────────────────────────────────
-// CLASS SCHEDULING & CONFLICT DETECTION
+// CLASS SCHEDULING & CONFLICT DETECTION logic
 // ──────────────────────────────────────────────
 
-// Determine scheduling rule via exact spec
+/**
+ * Internal logic to determine if two subjects can overlap in scheduling
+ * @param {string} newSubName - Name of the new subject
+ * @param {string} actSubName - Name of the active subject
+ * @returns {string} - Conflict rule: WARNING, STRICT_BLOCK, or ALLOWED_OVERLAP
+ */
 async function determineRule(newSubName, actSubName) {
   const { data: newSub } = await supabaseAdmin.from('subjects').select('*').eq('name', newSubName).single();
   const { data: actSub } = await supabaseAdmin.from('subjects').select('*').eq('name', actSubName).single();
@@ -139,18 +125,27 @@ async function determineRule(newSubName, actSubName) {
        return 'ALLOWED_OVERLAP';
     }
     
-    return 'ALLOWED_OVERLAP'; // Default for Arts and unknown
+    return 'ALLOWED_OVERLAP';
   }
-  return 'STRICT_BLOCK'; // Safe fallback
+  return 'STRICT_BLOCK';
 }
 
-// Check time overlap 
+/**
+ * Parses time string (HH:mm) to minutes from midnight
+ * @param {string} timeStr 
+ * @returns {number}
+ */
 function parseTime(timeStr) {
   if (!timeStr) return 0;
   const parts = timeStr.split(':');
   return parseInt(parts[0]) * 60 + parseInt(parts[1]);
 }
 
+/**
+ * @route   POST /api/classes/check-conflict
+ * @desc    Check for scheduling conflicts with existing approved classes
+ * @access  Private (Teacher/Admin)
+ */
 router.post('/check-conflict', verifyToken, verifyTeacher, async (req, res) => {
   const { subject, schedules } = req.body;
   if (!subject || !Array.isArray(schedules) || schedules.length === 0) {
@@ -189,9 +184,7 @@ router.post('/check-conflict', verifyToken, verifyTeacher, async (req, res) => {
       }
 
       if (isOverlap) {
-        // Time Overlap Confirmed! Now check Policy Rule.
         const rule = await determineRule(subject, act.subject);
-        
         return res.json({
           conflict: true,
           type: rule === 'STRICT_BLOCK' ? 'BLOCK' : 'WARNING',
@@ -207,7 +200,15 @@ router.post('/check-conflict', verifyToken, verifyTeacher, async (req, res) => {
   }
 });
 
-// Create a new class (Teacher)
+// ──────────────────────────────────────────────
+// CLASS CRUD ROUTES
+// ──────────────────────────────────────────────
+
+/**
+ * @route   POST /api/classes
+ * @desc    Create a new class request
+ * @access  Private (Teacher/Admin)
+ */
 router.post('/', verifyToken, verifyTeacher, async (req, res) => {
   const { 
     title, description, subject, price, mode, thumbnail_url,
@@ -237,18 +238,18 @@ router.post('/', verifyToken, verifyTeacher, async (req, res) => {
       .single();
 
     if (error) throw error;
-
     res.status(201).json(data);
   } catch (error) {
     console.error('CREATE CLASS ERROR:', error);
-    if (error.code === '42703') {
-      console.error('>>> CRITICAL: The "schedules" column is missing from the "classes" table. Please run the supabase_setup.sql migration! <<<');
-    }
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get my classes (Teacher)
+/**
+ * @route   GET /api/classes/my-classes
+ * @desc    Get all classes created by the logged-in teacher
+ * @access  Private (Teacher/Admin)
+ */
 router.get('/my-classes', verifyToken, verifyTeacher, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -258,14 +259,17 @@ router.get('/my-classes', verifyToken, verifyTeacher, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get pending classes (Admin)
+/**
+ * @route   GET /api/classes/pending
+ * @desc    Get all pending classes for approval
+ * @access  Private (Admin only)
+ */
 router.get('/pending', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -275,14 +279,17 @@ router.get('/pending', verifyToken, verifyAdmin, async (req, res) => {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get approved classes (Public/Student)
+/**
+ * @route   GET /api/classes/approved
+ * @desc    Get all approved classes (for public browsing)
+ * @access  Public
+ */
 router.get('/approved', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -292,16 +299,21 @@ router.get('/approved', async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// --- NOTIFICATION ROUTES ---
+// ──────────────────────────────────────────────
+// NOTIFICATION ROUTES
+// ──────────────────────────────────────────────
 
-// Get my notifications
+/**
+ * @route   GET /api/classes/notifications
+ * @desc    Get all notifications for the logged-in user
+ * @access  Private
+ */
 router.get('/notifications', verifyToken, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -311,15 +323,18 @@ router.get('/notifications', verifyToken, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
-    console.error('Error fetching class notifications:', error);
+    console.error('Error fetching notifications:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Mark notification as read
+/**
+ * @route   PATCH /api/classes/notifications/:id/read
+ * @desc    Mark a notification as read
+ * @access  Private
+ */
 router.patch('/notifications/:id/read', verifyToken, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -331,14 +346,21 @@ router.patch('/notifications/:id/read', verifyToken, async (req, res) => {
       .single();
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Update class status (Admin)
+// ──────────────────────────────────────────────
+// ADMIN CLASS MANAGEMENT
+// ──────────────────────────────────────────────
+
+/**
+ * @route   PATCH /api/classes/:id/status
+ * @desc    Approve or reject a class request
+ * @access  Private (Admin only)
+ */
 router.patch('/:id/status', verifyToken, verifyAdmin, async (req, res) => {
   const { status, rejection_reason } = req.body;
   const { id } = req.params;
@@ -354,19 +376,12 @@ router.patch('/:id/status', verifyToken, verifyAdmin, async (req, res) => {
       .update({
         status,
         rejection_reason: status === 'rejected' ? rejection_reason : null
-        // updated_at is handled by DB trigger
       })
       .eq('id', id)
       .select()
       .single();
 
-    if (classError) {
-      if (classError.code === 'PGRST116') {
-        return res.status(404).json({ error: 'Class not found' });
-      }
-      console.error('Database update error:', classError);
-      throw classError;
-    }
+    if (classError) throw classError;
 
     if (!classData) {
       return res.status(404).json({ error: 'Class not found' });
@@ -377,9 +392,8 @@ router.patch('/:id/status', verifyToken, verifyAdmin, async (req, res) => {
     const notificationMessage = status === 'approved' 
       ? `Your class "${classData.title}" has been approved and is now live.`
       : `Your class "${classData.title}" was rejected. Reason: ${rejection_reason}`;
-    const notificationType = status === 'approved' ? 'success' : 'error';
 
-    const { error: notifError } = await supabaseAdmin
+    await supabaseAdmin
       .from('notifications')
       .insert({
         recipient_id: classData.teacher_id,
@@ -389,16 +403,41 @@ router.patch('/:id/status', verifyToken, verifyAdmin, async (req, res) => {
         type: 'System'
       });
 
-    if (notifError) console.error('Error creating notification:', notifError);
-
     res.json(classData);
   } catch (error) {
-    console.error('Final catch error in status update:', error);
+    console.error('Status update error:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
-// Get full class details with sections and materials
+/**
+ * @route   GET /api/classes/admin/all
+ * @desc    Get absolutely all classes in the system
+ * @access  Private (Admin only)
+ */
+router.get('/admin/all', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('classes')
+      .select('*, profiles:teacher_id(first_name, last_name, email)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────
+// CLASS DETAILS & CONTENT ROUTES
+// ──────────────────────────────────────────────
+
+/**
+ * @route   GET /api/classes/:id
+ * @desc    Get detailed class info including curriculum (sections/materials)
+ * @access  Public
+ */
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   
@@ -407,7 +446,6 @@ router.get('/:id', async (req, res) => {
   }
 
   try {
-    // 1. Get Class Basic Info
     const { data: classData, error: classError } = await supabaseAdmin
       .from('classes')
       .select('*, profiles:teacher_id(first_name, last_name, profile_photo)')
@@ -416,7 +454,6 @@ router.get('/:id', async (req, res) => {
 
     if (classError) throw classError;
 
-    // 2. Get Sections and Materials
     const { data: sections, error: sectionsError } = await supabaseAdmin
       .from('class_sections')
       .select('*, class_materials(*)')
@@ -432,7 +469,11 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create a new section
+/**
+ * @route   POST /api/classes/:id/sections
+ * @desc    Create a new curriculum section for a class
+ * @access  Private
+ */
 router.post('/:id/sections', verifyToken, async (req, res) => {
   const { id: classId } = req.params;
   const { title, order_index } = req.body;
@@ -451,7 +492,11 @@ router.post('/:id/sections', verifyToken, async (req, res) => {
   }
 });
 
-// Add material to a section
+/**
+ * @route   POST /api/classes/sections/:sectionId/materials
+ * @desc    Add a material (video, file, etc.) to a section
+ * @access  Private
+ */
 router.post('/sections/:sectionId/materials', verifyToken, async (req, res) => {
   const { sectionId } = req.params;
   const { title, type, url, order_index } = req.body;
@@ -470,7 +515,11 @@ router.post('/sections/:sectionId/materials', verifyToken, async (req, res) => {
   }
 });
 
-// Delete a section
+/**
+ * @route   DELETE /api/classes/sections/:id
+ * @desc    Delete a curriculum section
+ * @access  Private
+ */
 router.delete('/sections/:id', verifyToken, async (req, res) => {
   try {
     const { error } = await supabaseAdmin
@@ -485,7 +534,11 @@ router.delete('/sections/:id', verifyToken, async (req, res) => {
   }
 });
 
-// Delete a material
+/**
+ * @route   DELETE /api/classes/materials/:id
+ * @desc    Delete a class material
+ * @access  Private
+ */
 router.delete('/materials/:id', verifyToken, async (req, res) => {
   try {
     const { error } = await supabaseAdmin
@@ -500,31 +553,14 @@ router.delete('/materials/:id', verifyToken, async (req, res) => {
   }
 });
 
-// (Moved notifications up)
-
-// Get all classes for Admin
-router.get('/admin/all', verifyToken, verifyAdmin, async (req, res) => {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('classes')
-      .select('*, profiles:teacher_id(first_name, last_name, email)')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ──────────────────────────────────────────────
-// STUDENT CLASS VIEW (gated by enrollment)
-// ──────────────────────────────────────────────
+/**
+ * @route   GET /api/classes/:id/student-view
+ * @desc    Detailed class view for enrolled students only
+ * @access  Private (Enrolled Students)
+ */
 router.get('/:id/student-view', verifyToken, async (req, res) => {
   const { id: classId } = req.params;
   try {
-    // Check enrollment
     const { data: enrollment } = await supabaseAdmin
       .from('enrollments')
       .select('id')
@@ -556,13 +592,14 @@ router.get('/:id/student-view', verifyToken, async (req, res) => {
   }
 });
 
-// ──────────────────────────────────────────────
-// TEACHER CLASS ANALYTICS
-// ──────────────────────────────────────────────
+/**
+ * @route   GET /api/classes/:id/analytics
+ * @desc    Get enrollment analytics and roster for a class
+ * @access  Private (Teacher Owner)
+ */
 router.get('/:id/analytics', verifyToken, verifyTeacher, async (req, res) => {
   const { id } = req.params;
   try {
-    // 1. Verify Teacher owns this class
     const { data: clazz } = await supabaseAdmin
       .from('classes')
       .select('id')
@@ -572,7 +609,6 @@ router.get('/:id/analytics', verifyToken, verifyTeacher, async (req, res) => {
 
     if (!clazz) return res.status(403).json({ error: 'Unauthorized to view this class analytics.' });
 
-    // 2. Fetch Enrollments
     const { data: enrollments, error: enrollError } = await supabaseAdmin
       .from('enrollments')
       .select('created_at, profiles:student_id(id, first_name, last_name, email, profile_photo, student_id)')
@@ -580,7 +616,6 @@ router.get('/:id/analytics', verifyToken, verifyTeacher, async (req, res) => {
     
     if (enrollError) throw enrollError;
 
-    // 3. Map constraints
     const students = (enrollments || []).map(e => ({
       id: e.profiles?.id,
       first_name: e.profiles?.first_name || 'Unknown',

@@ -1,3 +1,8 @@
+/**
+ * Authentication Routes
+ * Handles user registration, login, email verification, and password resets.
+ */
+
 const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../config/supabase');
@@ -6,7 +11,11 @@ const { generateHexToken, generateNumericToken } = require('../utils/token');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// Student Registration
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new student and send verification email
+ * @access  Public
+ */
 router.post('/register', async (req, res) => {
   const { firstName, lastName, email, phone, gender, birthday, password } = req.body;
 
@@ -22,6 +31,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists.' });
     }
 
+    let userId;
     // 2. Create user in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -115,7 +125,11 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Email Verification
+/**
+ * @route   GET /api/auth/verify-email/:token
+ * @desc    Verify user email via token link
+ * @access  Public
+ */
 router.get('/verify-email/:token', async (req, res) => {
   const { token } = req.params;
 
@@ -158,7 +172,11 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-// Login
+/**
+ * @route   POST /api/auth/login
+ * @desc    Authenticate user and return JWT token
+ * @access  Public
+ */
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -217,7 +235,11 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Request Password Reset (Manual)
+/**
+ * @route   POST /api/auth/request-password-reset
+ * @desc    Request a password reset code via email
+ * @access  Public
+ */
 router.post('/request-password-reset', async (req, res) => {
   const { email } = req.body;
 
@@ -276,7 +298,11 @@ router.post('/request-password-reset', async (req, res) => {
   }
 });
 
-// Verify Reset Code
+/**
+ * @route   POST /api/auth/verify-reset-code
+ * @desc    Verify the 6-digit password reset code
+ * @access  Public
+ */
 router.post('/verify-reset-code', async (req, res) => {
   const { email, code } = req.body;
 
@@ -315,7 +341,11 @@ router.post('/verify-reset-code', async (req, res) => {
   }
 });
 
-// Complete Password Reset
+/**
+ * @route   POST /api/auth/reset-password-complete
+ * @desc    Complete the password reset process with new password
+ * @access  Public
+ */
 router.post('/reset-password-complete', async (req, res) => {
   const { email, code, token, newPassword } = req.body;
   const resetToken = code || token;

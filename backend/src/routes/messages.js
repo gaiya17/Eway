@@ -1,21 +1,19 @@
+/**
+ * Messaging Routes
+ * Handles real-time chat conversations between students and teachers.
+ */
+
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const { supabaseAdmin } = require('../config/supabase');
+const { verifyToken } = require('../middleware/auth');
 require('dotenv').config();
 
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Access denied' });
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
-    req.user = user;
-    next();
-  });
-};
-
-// Create or retrieve conversation between student and a teacher for a class
+/**
+ * @route   POST /api/messages/conversation
+ * @desc    Create or retrieve a conversation between a student and a teacher
+ * @access  Private (Authenticated)
+ */
 router.post('/conversation', verifyToken, async (req, res) => {
   const { teacher_id, class_id } = req.body;
   if (!teacher_id) return res.status(400).json({ error: 'teacher_id is required' });
@@ -35,7 +33,7 @@ router.post('/conversation', verifyToken, async (req, res) => {
 
     if (existing) return res.json(existing);
 
-    // Create new conversation
+    // Create new conversation if none exists
     const { data, error } = await supabaseAdmin
       .from('conversations')
       .insert({ student_id, teacher_id, class_id: class_id || null })
@@ -45,17 +43,22 @@ router.post('/conversation', verifyToken, async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
-    console.error('conversation error:', error);
+    console.error('Conversation creation error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get all conversations for the logged-in user (student sees theirs, teacher sees theirs)
+/**
+ * @route   GET /api/messages/my-conversations
+ * @desc    Get all conversations for the logged-in user with unread counts
+ * @access  Private (Authenticated)
+ */
 router.get('/my-conversations', verifyToken, async (req, res) => {
   const userId = req.user.id;
   const role = req.user.role;
   try {
     let query;
+    // Flexible query based on user role (Teacher vs Student)
     if (role === 'teacher') {
       query = supabaseAdmin
         .from('conversations')
@@ -73,7 +76,7 @@ router.get('/my-conversations', verifyToken, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    // Get unread count per conversation
+    // Calculate unread message counts per conversation
     const convIds = (data || []).map(c => c.id);
     let unreadMap = {};
     if (convIds.length > 0) {
@@ -83,6 +86,7 @@ router.get('/my-conversations', verifyToken, async (req, res) => {
         .in('conversation_id', convIds)
         .eq('is_read', false)
         .neq('sender_id', userId);
+        
       (unread || []).forEach(m => {
         unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1;
       });
@@ -95,11 +99,15 @@ router.get('/my-conversations', verifyToken, async (req, res) => {
   }
 });
 
-// Get messages in a conversation
+/**
+ * @route   GET /api/messages/:conversationId
+ * @desc    Get all messages within a specific conversation
+ * @access  Private (Conversation Participants Only)
+ */
 router.get('/:conversationId', verifyToken, async (req, res) => {
   const { conversationId } = req.params;
   try {
-    // Verify user is part of this conversation
+    // Security Check: Verify user is a participant
     const { data: conv } = await supabaseAdmin
       .from('conversations')
       .select('student_id, teacher_id')
@@ -107,7 +115,7 @@ router.get('/:conversationId', verifyToken, async (req, res) => {
       .single();
 
     if (!conv || (conv.student_id !== req.user.id && conv.teacher_id !== req.user.id)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Access denied to this conversation.' });
     }
 
     const { data, error } = await supabaseAdmin
@@ -123,15 +131,21 @@ router.get('/:conversationId', verifyToken, async (req, res) => {
   }
 });
 
-// Send a message in a conversation
+/**
+ * @route   POST /api/messages/:conversationId
+ * @desc    Send a new message in a conversation
+ * @access  Private (Conversation Participants Only)
+ */
 router.post('/:conversationId', verifyToken, async (req, res) => {
   const { conversationId } = req.params;
   const { content } = req.body;
 
-  if (!content?.trim()) return res.status(400).json({ error: 'Message content is required' });
+  if (!content?.trim()) {
+    return res.status(400).json({ error: 'Message content is required' });
+  }
 
   try {
-    // Verify user is part of this conversation
+    // Security Check: Verify user is a participant
     const { data: conv } = await supabaseAdmin
       .from('conversations')
       .select('student_id, teacher_id')
@@ -139,9 +153,10 @@ router.post('/:conversationId', verifyToken, async (req, res) => {
       .single();
 
     if (!conv || (conv.student_id !== req.user.id && conv.teacher_id !== req.user.id)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Access denied to this conversation.' });
     }
 
+    // Insert new message
     const { data, error } = await supabaseAdmin
       .from('messages')
       .insert({ conversation_id: conversationId, sender_id: req.user.id, content: content.trim() })
@@ -150,7 +165,7 @@ router.post('/:conversationId', verifyToken, async (req, res) => {
 
     if (error) throw error;
 
-    // Update conversation last_message_at
+    // Update conversation timestamp for sorting
     await supabaseAdmin.from('conversations')
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', conversationId);
@@ -161,7 +176,11 @@ router.post('/:conversationId', verifyToken, async (req, res) => {
   }
 });
 
-// Mark all messages in a conversation as read (for the current user)
+/**
+ * @route   PATCH /api/messages/:conversationId/read
+ * @desc    Mark all messages in a conversation as read for the current user
+ * @access  Private (Conversation Participants Only)
+ */
 router.patch('/:conversationId/read', verifyToken, async (req, res) => {
   const { conversationId } = req.params;
   try {

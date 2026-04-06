@@ -4,6 +4,9 @@ import { GlassCard } from './glass-card';
 import { Mail, Lock, Eye, EyeOff, User, Phone, Calendar, ArrowRight, Check, X } from 'lucide-react';
 import ewayLogo from 'figma:asset/5839cd6ca5cc93c08af5158653805fc6c7e77232.png';
 
+/**
+ * Props for the RegistrationPage component
+ */
 interface RegistrationPageProps {
   onBackToHome?: () => void;
   onLoginClick?: () => void;
@@ -158,12 +161,11 @@ export function RegistrationPage({ onBackToHome, onLoginClick }: RegistrationPag
   // Update validation when fields change
   useEffect(() => {
     const newValidation = { ...validation };
-    Object.keys(formData).forEach((key) => {
+    (Object.keys(formData) as Array<keyof FormData>).forEach((key) => {
       if (key !== 'agreeToTerms') {
-        const fieldKey = key as keyof FormData;
-        const value = formData[fieldKey] as string;
+        const value = formData[key] as string;
         if (touched[key] || value) {
-          newValidation[fieldKey] = validateField(fieldKey, value);
+          newValidation[key] = validateField(key, value);
         }
       }
     });

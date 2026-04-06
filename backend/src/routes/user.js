@@ -1,21 +1,27 @@
+/**
+ * User and Profile Routes
+ * Handles profile management, teacher listings, and administrative user creation (Staff/Teachers).
+ */
+
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const { supabaseAdmin } = require('../config/supabase');
+const { verifyToken, verifyAdmin } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-// Configure multer for profile photos
+/**
+ * Configure Multer for profile photo uploads
+ */
+const profileUploadDir = path.join(__dirname, '../../uploads/profiles');
+if (!fs.existsSync(profileUploadDir)) {
+  fs.mkdirSync(profileUploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads/profiles';
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
+  destination: (req, file, cb) => cb(null, profileUploadDir),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, `profile-${req.user.id}-${uniqueSuffix}${path.extname(file.originalname)}`);
@@ -27,39 +33,22 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    if (extname && mimetype) {
-      return cb(null, true);
-    }
+    const isExtAllowed = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const isMimeAllowed = allowedTypes.test(file.mimetype);
+    if (isExtAllowed && isMimeAllowed) return cb(null, true);
     cb(new Error('Only images (jpeg, jpg, png, webp) are allowed'));
   }
 });
 
-// Middleware to verify JWT
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+// ──────────────────────────────────────────────
+// ADMIN USER MANAGEMENT
+// ──────────────────────────────────────────────
 
-  if (!token) return res.status(401).json({ error: 'Access denied' });
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' });
-    req.user = user;
-    next();
-  });
-};
-
-// Middleware to verify Admin role
-const verifyAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ error: 'Access denied. Admin role required.' });
-  }
-};
-
-// Admin: List all users
+/**
+ * @route   GET /api/users
+ * @desc    List all registered users in the system
+ * @access  Private (Admin only)
+ */
 router.get('/', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const { data: users, error } = await supabaseAdmin
@@ -68,17 +57,111 @@ router.get('/', verifyToken, verifyAdmin, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// List all teachers (Public/Student)
+/**
+ * @route   POST /api/users/add
+ * @desc    Create a new Staff or Teacher account and send onboarding email
+ * @access  Private (Admin only)
+ */
+router.post('/add', verifyToken, verifyAdmin, async (req, res) => {
+  const { firstName, lastName, email, phone, role } = req.body;
+
+  if (!['teacher', 'staff'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role. Only teacher and staff can be added.' });
+  }
+
+  try {
+    // 1. Create entry in Supabase Auth (Admin level)
+    const tempPassword = Math.random().toString(36).slice(-1).toUpperCase() + Math.random().toString(36).slice(-10) + '1!';
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { first_name: firstName, last_name: lastName, role: role }
+    });
+
+    let userId;
+    if (authError) {
+      // Handle existing users by just updating their profile
+      if (authError.code === 'email_exists' || authError.message.includes('already registered')) {
+        const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+        userId = users.users.find(u => u.email === email)?.id;
+        if (!userId) throw new Error('Existing user email detected but record not found.');
+      } else {
+        throw authError;
+      }
+    } else {
+      userId = authData.user.id;
+    }
+
+    // 2. Ensure Profile record exists and is verified
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: userId,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        role: role,
+        is_verified: true
+      });
+
+    if (profileError) throw profileError;
+
+    // 3. Generate Password Setup Token
+    const { generateHexToken } = require('../utils/token');
+    const { sendEmail } = require('../config/mail');
+    
+    const token = generateHexToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 48); // 48h validity
+
+    const { error: tokenError } = await supabaseAdmin
+      .from('password_reset_tokens')
+      .insert({ user_id: userId, token: token, expires_at: expiresAt });
+
+    if (tokenError) throw tokenError;
+
+    // 4. Send Onboarding Email
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #4f46e5; text-align: center;">Welcome to EWAY LMS</h2>
+        <p>Hi ${firstName},</p>
+        <p>An account has been created for you as a <strong>${role}</strong>.</p>
+        <p>Please use the link below to set up your account password and get started:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Set My Password</a>
+        </div>
+        <p style="font-size: 12px; color: #999;">This link will expire in 48 hours.</p>
+      </div>
+    `;
+
+    await sendEmail(email, 'Setup Your Account Password - EWAY LMS', emailHtml);
+    res.status(201).json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} invited successfully.` });
+  } catch (error) {
+    console.error('User addition error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────
+// TEACHER PUBLIC DIRECTORY
+// ──────────────────────────────────────────────
+
+/**
+ * @route   GET /api/users/teachers
+ * @desc    List all teachers with their course and student statistics
+ * @access  Public
+ */
 router.get('/teachers', async (req, res) => {
   try {
-    // 1. Get all teachers
     const { data: teachers, error } = await supabaseAdmin
       .from('profiles')
       .select('id, first_name, last_name, email, profile_photo, role, quote, about, experience, subject')
@@ -87,7 +170,7 @@ router.get('/teachers', async (req, res) => {
 
     if (error) throw error;
 
-    // 2. Enhance with class counts
+    // Enhance teacher profiles with live stats from other tables
     const enhancedTeachers = await Promise.all(teachers.map(async (teacher) => {
       const { count: classCount } = await supabaseAdmin
         .from('classes')
@@ -105,7 +188,7 @@ router.get('/teachers', async (req, res) => {
         ...teacher,
         courseCount: classCount || 0,
         studentCount: studentCount || 0,
-        rating: 4.8, // Static for now as review system isn't built
+        rating: 4.8, // Placeholder until review system implemented
         reviewCount: 0
       };
     }));
@@ -116,11 +199,14 @@ router.get('/teachers', async (req, res) => {
   }
 });
 
-// Get teacher by ID with classes
+/**
+ * @route   GET /api/users/teachers/:id
+ * @desc    Get detailed profile for a specific teacher including their courses
+ * @access  Public
+ */
 router.get('/teachers/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    // 1. Get Teacher Profile
     const { data: teacher, error: teacherError } = await supabaseAdmin
       .from('profiles')
       .select('*')
@@ -130,7 +216,6 @@ router.get('/teachers/:id', async (req, res) => {
 
     if (teacherError) throw teacherError;
 
-    // 2. Get Teacher's Approved Classes
     const { data: classes, error: classesError } = await supabaseAdmin
       .from('classes')
       .select('*')
@@ -146,30 +231,15 @@ router.get('/teachers/:id', async (req, res) => {
   }
 });
 
-// Check enrollment status for a student with a teacher
-router.get('/enrollment-check/:teacherId', verifyToken, async (req, res) => {
-  const { teacherId } = req.params;
-  const studentId = req.user.id;
+// ──────────────────────────────────────────────
+// PROFILE MANAGEMENT
+// ──────────────────────────────────────────────
 
-  try {
-    // Check if there is an active enrollment for any class taught by this teacher
-    const { data, error } = await supabaseAdmin
-      .from('enrollments')
-      .select('id, classes!inner(teacher_id)')
-      .eq('student_id', studentId)
-      .eq('classes.teacher_id', teacherId)
-      .eq('status', 'active')
-      .limit(1);
-
-    if (error) throw error;
-
-    res.json({ isEnrolled: data && data.length > 0 });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get profile
+/**
+ * @route   GET /api/users/profile
+ * @desc    Get current user's profile information
+ * @access  Private (Authenticated)
+ */
 router.get('/profile', verifyToken, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
@@ -179,14 +249,17 @@ router.get('/profile', verifyToken, async (req, res) => {
       .single();
 
     if (error) throw error;
-
     res.json(profile);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Update profile
+/**
+ * @route   PATCH /api/users/profile
+ * @desc    Update current user's profile details
+ * @access  Private (Authenticated)
+ */
 router.patch('/profile', verifyToken, async (req, res) => {
   const { firstName, lastName, phone, gender, birthday, first_name, last_name } = req.body;
 
@@ -206,17 +279,20 @@ router.patch('/profile', verifyToken, async (req, res) => {
       .single();
 
     if (error) throw error;
-
     res.json(profile);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Upload profile photo
+/**
+ * @route   POST /api/users/profile/photo
+ * @desc    Upload and update user profile picture
+ * @access  Private (Authenticated)
+ */
 router.post('/profile/photo', verifyToken, upload.single('photo'), async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
+    return res.status(400).json({ error: 'No image file provided.' });
   }
 
   try {
@@ -235,7 +311,7 @@ router.post('/profile/photo', verifyToken, upload.single('photo'), async (req, r
     if (error) throw error;
 
     res.json({ 
-      message: 'Photo uploaded successfully',
+      message: 'Profile photo updated successfully',
       photoUrl: photoUrl,
       profile: profile
     });
@@ -244,99 +320,27 @@ router.post('/profile/photo', verifyToken, upload.single('photo'), async (req, r
   }
 });
 
-// Admin: Add Teacher or Staff
-router.post('/add', verifyToken, verifyAdmin, async (req, res) => {
-  const { firstName, lastName, email, phone, role } = req.body;
-
-  if (!['teacher', 'staff'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role. Only teacher and staff can be added.' });
-  }
+/**
+ * @route   GET /api/users/enrollment-check/:teacherId
+ * @desc    Check if the student is currently enrolled with a specific teacher
+ * @access  Private (Student)
+ */
+router.get('/enrollment-check/:teacherId', verifyToken, async (req, res) => {
+  const { teacherId } = req.params;
+  const studentId = req.user.id;
 
   try {
-    // 1. Create user in Supabase Auth with a temporary random password
-    const tempPassword = Math.random().toString(36).slice(-12) + 'A1!';
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName,
-        last_name: lastName,
-        role: role
-      }
-    });
+    const { data, error } = await supabaseAdmin
+      .from('enrollments')
+      .select('id, classes!inner(teacher_id)')
+      .eq('student_id', studentId)
+      .eq('classes.teacher_id', teacherId)
+      .eq('status', 'active')
+      .limit(1);
 
-    let userId;
-    if (authError) {
-      if (authError.code === 'email_exists' || authError.message.includes('already registered')) {
-        const { data: userData, error: fetchError } = await supabaseAdmin.auth.admin.listUsers();
-        if (fetchError) throw fetchError;
-        const existingUser = userData.users.find(u => u.email === email);
-        if (!existingUser) throw new Error('Could not find existing user profile after email_exists error.');
-        userId = existingUser.id;
-      } else {
-        throw authError;
-      }
-    } else {
-      userId = authData.user.id;
-    }
-
-    // 2. Ensure profile exists and is verified (Don't rely solely on DB trigger)
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        id: userId,
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        role: role,
-        is_verified: true
-      });
-
-    if (profileError) throw profileError;
-
-    // 3. Generate reset token
-    const { generateHexToken } = require('../utils/token');
-    const { sendEmail } = require('../config/mail');
-    
-    const token = generateHexToken();
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 48); // 48 hours expiry
-
-    const { error: tokenError } = await supabaseAdmin
-      .from('password_reset_tokens')
-      .insert({
-        user_id: userId,
-        token: token,
-        expires_at: expiresAt
-      });
-
-    if (tokenError) throw tokenError;
-
-    // 3. Send password reset email
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-    const emailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-        <h2 style="color: #4f46e5; text-align: center;">Account Created - EWAY LMS</h2>
-        <p>Hi ${firstName},</p>
-        <p>An account has been created for you as a <strong>${role}</strong> on EWAY LMS.</p>
-        <p>Before you can log in, you need to set up your password. Please click the button below to set your password:</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Set My Password</a>
-        </div>
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color: #666;">${resetLink}</p>
-        <p>This link will expire in 48 hours.</p>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="font-size: 12px; color: #999; text-align: center;">&copy; 2026 EWAY Institute. All rights reserved.</p>
-      </div>
-    `;
-
-    await sendEmail(email, 'Setup Your Account Password - EWAY LMS', emailHtml);
-
-    res.status(201).json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} added successfully! Setup email sent.` });
+    if (error) throw error;
+    res.json({ isEnrolled: data && data.length > 0 });
   } catch (error) {
-    console.error('Add user error:', error);
     res.status(500).json({ error: error.message });
   }
 });

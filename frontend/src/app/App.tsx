@@ -103,8 +103,15 @@ type PageType =
   | 'admin-my-profile'
   | 'student-class-view';
 
+/**
+ * Main Application Component
+ * Handles global state, client-side routing (state-based), and user session persistence.
+ */
 function App() {
+  // Navigation & Page State
   const [currentPage, setCurrentPage] = useState<PageType>('home');
+  
+  // Transient Data States (passed between pages during navigation)
   const [checkoutData, setCheckoutData] = useState<any>(null);
   const [previewPackData, setPreviewPackData] = useState<any>(null);
   const [packCheckoutData, setPackCheckoutData] = useState<any>(null);
@@ -113,6 +120,10 @@ function App() {
   const [classViewData, setClassViewData] = useState<any>(null);
   const [studentClassViewData, setStudentClassViewData] = useState<any>(null);
 
+  /**
+   * Effect: Initialize App State
+   * Restores session from localStorage and handles direct URL deep-linking (e.g. for password resets).
+   */
   useEffect(() => {
     // Smooth scrolling for the entire page
     document.documentElement.style.scrollBehavior = 'smooth';
@@ -164,12 +175,20 @@ function App() {
     }
   };
 
+  /**
+   * Universal Logout Handler
+   * Clears all session data and redirects to login.
+   */
   const handleLogout = () => {
     localStorage.removeItem('eway_token');
     localStorage.removeItem('eway_user');
     localStorage.removeItem('eway_current_page');
     setCurrentPage('login');
   };
+
+  /**
+   * Navigation Handlers for Landing Page
+   */
 
   const handleLoginClick = () => {
     setCurrentPage('login');
@@ -184,6 +203,11 @@ function App() {
       window.history.replaceState({}, '', '/');
     }
   };
+
+  /**
+   * Specialized Navigation Handlers
+   * These manage state-based routing for each user role.
+   */
 
   const handleStudentNavigation = (page: string, data?: any) => {
     if (page === 'dashboard') {
@@ -227,7 +251,6 @@ function App() {
     } else if (page === 'support') {
       setCurrentPage('support');
     }
-    // Add more navigation cases as needed
   };
 
   const handleTeacherNavigation = (page: string, data?: any) => {
@@ -243,8 +266,6 @@ function App() {
       setCurrentPage('teacher-attendance');
     } else if (page === 'notifications' || page === 'teacher-notifications') {
       setCurrentPage('teacher-notifications');
-    } else if (page === 'teacher-students') {
-      alert('Students - Coming Soon!');
     } else if (page === 'teacher-chat') {
       setCurrentPage('teacher-chat');
     } else if (page === 'teacher-class-view') {
@@ -292,9 +313,6 @@ function App() {
       setCurrentPage('admin-my-profile');
     } else if (page === 'profile') {
       setCurrentPage('admin-my-profile');
-    } else {
-      // For now, show alert for other admin pages
-      alert(`${page} - Coming Soon!`);
     }
   };
 
