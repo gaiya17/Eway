@@ -17,6 +17,9 @@ import {
   DollarSign,
   Award,
   Target,
+  Radio,
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 
 interface StudentDashboardHomeProps {
@@ -32,26 +35,42 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
     studentId: string;
     profilePhoto: string;
   } | null>(null);
+  const [dashboardData, setDashboardData] = useState<{
+    stats: {
+      attendanceRate: number;
+      upcomingCount: number;
+      completedAssignments: number;
+      overallScore: number;
+    };
+    upcomingClasses: any[];
+    recentActivity: any[];
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   React.useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const response = await apiClient.get('/users/profile');
-        const data = response.data;
+        const [profileResp, dashboardResp] = await Promise.all([
+          apiClient.get('/users/profile'),
+          apiClient.get('/users/student/dashboard')
+        ]);
+        
+        const pData = profileResp.data;
         setProfile({
-          firstName: data.first_name || 'Student',
-          lastName: data.last_name || '',
-          studentId: data.id || 'N/A',
-          profilePhoto: data.profile_photo || '',
+          firstName: pData.first_name || 'Student',
+          lastName: pData.last_name || '',
+          studentId: pData.id || 'N/A',
+          profilePhoto: pData.profile_photo || '',
         });
+
+        setDashboardData(dashboardResp.data);
       } catch (error) {
-        console.error('Error fetching dashboard profile:', error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProfile();
+    fetchDashboardData();
   }, []);
 
   const getGreeting = () => {
@@ -152,7 +171,7 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
   ];
 
   // Circular progress component
-  const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#06B6D4' }) => {
+  const CircularProgress = ({ percentage, size = 120, strokeWidth = 8, color = '#06B6D4' }: { percentage: number, size?: number, strokeWidth?: number, color?: string }) => {
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (percentage / 100) * circumference;
@@ -337,9 +356,9 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Attendance Rate with Circular Progress */}
               <GlassCard className="p-6 flex flex-col items-center justify-center">
-                <CircularProgress percentage={92} color="#06B6D4" />
+                <CircularProgress percentage={dashboardData?.stats.attendanceRate || 0} color="#06B6D4" />
                 <h3 className="text-white font-bold text-lg mt-4">Attendance Rate</h3>
-                <p className="text-white/60 text-sm">46/50 classes</p>
+                <p className="text-white/60 text-sm">Overall attendance</p>
               </GlassCard>
 
               {/* Upcoming Classes */}
@@ -347,9 +366,9 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/30 to-indigo-600/30 flex items-center justify-center mb-4">
                   <Calendar size={40} className="text-blue-400" />
                 </div>
-                <h3 className="text-5xl font-bold text-white mb-2">3</h3>
-                <p className="text-white/70 font-semibold">Upcoming Classes</p>
-                <p className="text-white/50 text-sm">Today</p>
+                <h3 className="text-5xl font-bold text-white mb-2">{dashboardData?.stats.upcomingCount || 0}</h3>
+                <p className="text-white/70 font-semibold">Upcoming Live Classes</p>
+                <p className="text-white/50 text-sm">Scheduled</p>
               </GlassCard>
 
               {/* Completed Assignments */}
@@ -357,19 +376,19 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-500/30 to-emerald-600/30 flex items-center justify-center mb-4">
                   <CheckCircle size={40} className="text-green-400" />
                 </div>
-                <h3 className="text-5xl font-bold text-white mb-2">24</h3>
+                <h3 className="text-5xl font-bold text-white mb-2">{dashboardData?.stats.completedAssignments || 0}</h3>
                 <p className="text-white/70 font-semibold">Completed</p>
                 <p className="text-white/50 text-sm">Assignments</p>
               </GlassCard>
 
-              {/* Payment Status */}
+              {/* Overall Score */}
               <GlassCard className="p-6 flex flex-col items-center justify-center">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center mb-4">
                   <Target size={40} className="text-cyan-400" />
                 </div>
-                <h3 className="text-5xl font-bold text-white mb-2">95%</h3>
+                <h3 className="text-5xl font-bold text-white mb-2">{dashboardData?.stats.overallScore || 0}%</h3>
                 <p className="text-white/70 font-semibold">Overall Score</p>
-                <p className="text-white/50 text-sm">This semester</p>
+                <p className="text-white/50 text-sm">Avg. Assignment Grade</p>
               </GlassCard>
             </div>
           </div>
@@ -379,38 +398,50 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
             <h2 className="text-2xl font-bold text-white mb-6">Upcoming Classes</h2>
             <GlassCard className="p-6">
               <div className="space-y-4">
-                {upcomingClasses.map((classItem, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300 group"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br from-${classItem.color}-500 to-${classItem.color}-600 flex items-center justify-center`}>
-                        <Video size={24} className="text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-white font-bold text-lg">{classItem.name}</h3>
-                        <p className="text-white/60 text-sm">{classItem.teacher}</p>
-                      </div>
-                    </div>
-                    <div className="text-right mr-6">
-                      <div className="flex items-center gap-2 text-white/70 text-sm mb-1">
-                        <Clock size={14} />
-                        {classItem.time}
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        classItem.status === 'Starting Soon'
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                      }`}>
-                        {classItem.status}
-                      </span>
-                    </div>
-                    <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(59,130,246,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100">
-                      Join Class
-                    </button>
+                {(!dashboardData?.upcomingClasses || dashboardData.upcomingClasses.length === 0) ? (
+                  <div className="text-center py-10">
+                    <Calendar className="mx-auto text-white/20 mb-3" size={48} />
+                    <p className="text-white/40">No upcoming live classes scheduled.</p>
                   </div>
-                ))}
+                ) : (
+                  dashboardData.upcomingClasses.map((classItem, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300 group"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                          <Radio size={24} className="text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-white font-bold text-lg">{classItem.name}</h3>
+                          <p className="text-white/60 text-sm">{classItem.teacher}</p>
+                        </div>
+                      </div>
+                      <div className="text-right mr-6">
+                        <div className="flex items-center gap-2 text-white/70 text-sm mb-1">
+                          <Clock size={14} />
+                          {classItem.time}
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          classItem.status === 'Starting Soon'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            : 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        }`}>
+                          {classItem.status}
+                        </span>
+                      </div>
+                      <a 
+                        href={classItem.url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(59,130,246,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100"
+                      >
+                        Join Class
+                      </a>
+                    </div>
+                  ))
+                )}
               </div>
             </GlassCard>
           </div>
@@ -420,31 +451,53 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
             <h2 className="text-2xl font-bold text-white mb-6">Recent Activity</h2>
             <GlassCard className="p-6">
               <div className="space-y-6">
-                {recentActivity.map((activity, index) => {
-                  const Icon = activity.icon;
-                  return (
-                    <div key={index} className="flex items-start gap-4 relative">
-                      {/* Timeline Line */}
-                      {index !== recentActivity.length - 1 && (
-                        <div className="absolute left-6 top-12 w-0.5 h-12 bg-white/10" />
-                      )}
+                {(!dashboardData?.recentActivity || dashboardData.recentActivity.length === 0) ? (
+                  <div className="text-center py-10 text-white/40">
+                    No recent activity found.
+                  </div>
+                ) : (
+                  dashboardData.recentActivity.map((activity, index) => {
+                    const getActivityIcon = () => {
+                      if (activity.type === 'submission') return CheckCircle;
+                      if (activity.type === 'payment') return DollarSign;
+                      return activity.category === 'Class_Request' ? BookOpen : Calendar;
+                    };
+                    const getActivityColor = () => {
+                      if (activity.type === 'submission') return 'text-green-400';
+                      if (activity.type === 'payment') return activity.status === 'approved' ? 'text-green-400' : 'text-blue-400';
+                      return 'text-cyan-400';
+                    };
+                    const Icon = getActivityIcon();
+                    const color = getActivityColor();
 
-                      {/* Icon */}
-                      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 relative z-10">
-                        <Icon size={20} className={activity.color} />
+                    return (
+                      <div key={index} className="flex items-start gap-4 relative">
+                        {/* Timeline Line */}
+                        {index !== dashboardData.recentActivity.length - 1 && (
+                          <div className="absolute left-6 top-12 w-0.5 h-12 bg-white/10" />
+                        )}
+
+                        {/* Icon */}
+                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 relative z-10">
+                          <Icon size={20} className={color} />
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 pt-2">
+                          <h4 className="text-white font-semibold">{activity.title}</h4>
+                          <p className="text-white/60 text-sm">{activity.description}</p>
+                        </div>
+
+                        {/* Time */}
+                        <div className="text-white/50 text-sm pt-2">
+                          {new Date(activity.time).toLocaleDateString() === new Date().toLocaleDateString() 
+                            ? 'Today' 
+                            : new Date(activity.time).toLocaleDateString()}
+                        </div>
                       </div>
-
-                      {/* Content */}
-                      <div className="flex-1 pt-2">
-                        <h4 className="text-white font-semibold">{activity.title}</h4>
-                        <p className="text-white/60 text-sm">{activity.description}</p>
-                      </div>
-
-                      {/* Time */}
-                      <div className="text-white/50 text-sm pt-2">{activity.time}</div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </GlassCard>
           </div>

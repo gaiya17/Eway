@@ -85,6 +85,7 @@ export function DashboardSidebar({ userRole, activePage = 'dashboard', onNavigat
         { id: 'content-management', label: 'Content Management', icon: BookOpen, section: 'main' },
         { id: 'chatbot-management', label: 'Chatbot Management', icon: MessageSquare, section: 'main' },
         { id: 'payment-verification', label: 'Payment Verification', icon: CreditCard, section: 'main' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'main' },
         { id: 'report-generation', label: 'Report Generation', icon: FileText, section: 'main' },
         { id: 'attendance-management', label: 'Activity Log', icon: QrCode, section: 'main' },
         { id: 'profile', label: 'My Profile', icon: User, section: 'system' },

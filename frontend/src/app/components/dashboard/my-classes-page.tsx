@@ -66,7 +66,7 @@ export function MyClassesPage({ onLogout, onNavigate }: MyClassesPageProps) {
     try {
       const [enrollRes, paymentRes] = await Promise.allSettled([
         apiClient.get('/payments/my-enrollments'),
-        apiClient.get('/classes/my-payments'),
+        apiClient.get('/payments/my-payments'),
       ]);
       if (enrollRes.status === 'fulfilled') setEnrollments(enrollRes.value.data || []);
       if (paymentRes.status === 'fulfilled') {

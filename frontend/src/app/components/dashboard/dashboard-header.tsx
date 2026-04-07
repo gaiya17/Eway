@@ -50,7 +50,7 @@ export function DashboardHeader({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const { notifications, unreadCount, markAsRead } = useNotifications(userId || null);
+  const { notifications, unreadCount, markAsRead } = useNotifications(userId || null, userRole);
 
   const typeToIcon = (type: string) => {
     if (type === 'success') return '🎉';

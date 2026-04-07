@@ -15,10 +15,32 @@ const { verifyToken } = require('../middleware/auth');
  */
 router.get('/', verifyToken, async (req, res) => {
   try {
+    const userRole = req.user.role.charAt(0).toUpperCase() + req.user.role.slice(1);
+    
     const { data, error } = await supabaseAdmin
       .from('notifications')
       .select('*')
-      .eq('recipient_id', req.user.id)
+      .or(`recipient_id.eq.${req.user.id},recipient_role.eq.${userRole}`)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @route   GET /api/notifications/sent
+ * @desc    Get all notifications sent by the currently logged-in user
+ * @access  Private (Authenticated)
+ */
+router.get('/sent', verifyToken, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('notifications')
+      .select('*, recipient:recipient_id(first_name, last_name, role, email)')
+      .eq('sender_id', req.user.id)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -35,11 +57,14 @@ router.get('/', verifyToken, async (req, res) => {
  */
 router.patch('/:id/read', verifyToken, async (req, res) => {
   try {
+    const userRole = req.user.role.charAt(0).toUpperCase() + req.user.role.slice(1);
+    
+    // We allow marking as read if either ID matches OR role matches
     const { data, error } = await supabaseAdmin
       .from('notifications')
       .update({ is_read: true })
       .eq('id', req.params.id)
-      .eq('recipient_id', req.user.id)
+      .or(`recipient_id.eq.${req.user.id},recipient_role.eq.${userRole}`)
       .select()
       .single();
 
@@ -57,11 +82,13 @@ router.patch('/:id/read', verifyToken, async (req, res) => {
  */
 router.post('/read-all', verifyToken, async (req, res) => {
   try {
+    const userRole = req.user.role.charAt(0).toUpperCase() + req.user.role.slice(1);
+    
     const { error } = await supabaseAdmin
       .from('notifications')
       .update({ is_read: true })
-      .eq('recipient_id', req.user.id)
-      .eq('is_read', false);
+      .eq('is_read', false)
+      .or(`recipient_id.eq.${req.user.id},recipient_role.eq.${userRole}`);
 
     if (error) throw error;
     res.status(200).json({ message: 'All notifications marked as read successfully.' });

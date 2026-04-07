@@ -4,7 +4,7 @@ import { GlassCard } from '../glass-card';
 import apiClient from '@/api/api-client';
 import {
   CheckCircle, XCircle, Clock, BookOpen, User, DollarSign,
-  Calendar, AlertCircle, Search, Filter, Eye, MessageSquare
+  Calendar, AlertCircle, Search, Filter, Eye, MessageSquare, Trash2
 } from 'lucide-react';
 
 interface ClassData {
@@ -89,6 +89,23 @@ export function AdminContentManagement({ onLogout, onNavigate }: { onLogout?: ()
     } catch (error) {
       console.error('Error rejecting class:', error);
       alert('Failed to reject class.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteClass = async (id: string) => {
+    if (!id) return;
+    if (!confirm('Are you sure you want to delete this class permanently? This action cannot be undone.')) return;
+    
+    setIsProcessing(true);
+    try {
+      await apiClient.delete(`/classes/${id}`);
+      setAllClasses(allClasses.filter(c => c.id !== id));
+      setSelectedClass(null);
+      alert('Class deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting class:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -316,10 +333,19 @@ export function AdminContentManagement({ onLogout, onNavigate }: { onLogout?: ()
                 )}
                 
                 {selectedClass.status !== 'pending' && (
-                  <div className="pt-4 border-t border-white/10 flex justify-center">
-                    <button onClick={() => setSelectedClass(null)} className="text-white/60 hover:text-white transition-colors text-sm font-medium">
-                      Close Details
+                  <div className="pt-6 border-t border-white/10 space-y-4">
+                    <button
+                      onClick={() => handleDeleteClass(selectedClass.id)}
+                      disabled={isProcessing}
+                      className="w-full py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-bold hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <Trash2 size={18} /> Delete Class Permanently
                     </button>
+                    <div className="flex justify-center">
+                      <button onClick={() => setSelectedClass(null)} className="text-white/60 hover:text-white transition-colors text-sm font-medium">
+                        Close Details
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

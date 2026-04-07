@@ -23,8 +23,25 @@ import {
   ExternalLink,
   Loader2,
   Users,
-  ClipboardList
+  ClipboardList,
+  DollarSign,
+  AlertCircle,
+  Award
 } from 'lucide-react';
+
+const OL_SUBJECTS = [
+  "Mathematics", "English", "Science", "Sinhala", "History", "Religion",
+  "Business & Accounting Studies", "Commerce", "Geography", "Civic Education", "Entrepreneurship Studies", "Second Language (Sinhala)", "Second Language (Tamil)",
+  "Music", "Art", "Dance", "Sinhala Literary", "English Literary", "Drama",
+  "ICT", "Agriculture", "Health", "Communication"
+];
+
+const AL_STREAMS: Record<string, string[]> = {
+  "Science": ["Biology", "Physics", "Chemistry", "Combined Mathematics", "Agriculture", "ICT (Information & Communication Technology)"],
+  "Commerce": ["Accounting", "Business Studies", "Economics", "ICT"],
+  "Arts": ["History", "Political Science", "Geography", "Logic", "Sinhala / Tamil / English Literature", "Media Studies", "Art"],
+  "Technology": ["SFT", "ET / BST", "Agriculture", "ICT", "Geography", "Economics", "Business studies", "Accounting", "Home economics", "Communication and media studies", "Arts", "English", "Maths"]
+};
 
 interface Material {
   id: string;
@@ -50,6 +67,11 @@ interface ClassDetail {
   description: string;
   subject: string;
   status: string;
+  price: number;
+  mode: 'Online' | 'Physical';
+  thumbnail_url: string;
+  start_date: string;
+  duration: string;
   sections: Section[];
 }
 
@@ -225,11 +247,24 @@ export function TeacherClassViewPage({
   const [matType, setMatType] = useState<'pdf' | 'video' | 'live'>('pdf');
   const [matTitle, setMatTitle] = useState('');
   const [matUrl, setMatUrl] = useState('');
+  const [matScheduledAt, setMatScheduledAt] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Assignments States
+  // Edit Class Modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    subject: '',
+    price: '',
+    mode: 'Online' as 'Online' | 'Physical',
+    thumbnail_url: '',
+    start_date: '',
+    duration: '',
+  });
   const [assignments, setAssignments] = useState<any[]>([]);
   const [isPublishingAssignment, setIsPublishingAssignment] = useState(false);
   const [showAddAssignment, setShowAddAssignment] = useState(false);
@@ -240,6 +275,12 @@ export function TeacherClassViewPage({
 
   const assignFileRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Grading State
+  const [gradingSubmission, setGradingSubmission] = useState<any>(null);
+  const [gradeValue, setGradeValue] = useState('');
+  const [feedbackValue, setFeedbackValue] = useState('');
+  const [isGrading, setIsGrading] = useState(false);
 
   useEffect(() => {
     if (classId) fetchClassDetails();
@@ -285,6 +326,26 @@ export function TeacherClassViewPage({
     }
   };
 
+  const handleGradeSubmission = async () => {
+    if (!gradingSubmission || !gradeValue.trim()) return alert("Grade is required!");
+    setIsGrading(true);
+    try {
+       await apiClient.patch(`/assignments/submissions/${gradingSubmission.id}/grade`, {
+          grade: gradeValue,
+          feedback: feedbackValue
+       });
+       alert("Grade submitted successfully!");
+       setGradingSubmission(null);
+       setGradeValue('');
+       setFeedbackValue('');
+       fetchAssignments(); // Refresh to show updated status
+    } catch (e: any) {
+       alert("Failed to submit grade: " + (e.response?.data?.error || e.message));
+    } finally {
+       setIsGrading(false);
+    }
+  };
+
   const handleDeleteAssignment = async (id: string) => {
     if (!confirm("Delete assignment permanently?")) return;
     try {
@@ -293,18 +354,70 @@ export function TeacherClassViewPage({
     } catch (e) { console.error(e); }
   };
 
-  const fetchClassDetails = async () => {
+const fetchClassDetails = async () => {
     try {
       const response = await apiClient.get(`/classes/${classId}`);
-      setClassData(response.data);
-      if (response.data.sections?.length > 0 && expandedSections.length === 0) {
-        setExpandedSections([response.data.sections[0].id]);
+      const data = response.data;
+      setClassData(data);
+      setEditFormData({
+        title: data.title || '',
+        description: data.description || '',
+        subject: data.subject || '',
+        price: data.price ? data.price.toString() : '',
+        mode: data.mode || 'Online',
+        thumbnail_url: data.thumbnail_url || '',
+        start_date: data.start_date || '',
+        duration: data.duration || '',
+      });
+      if (data.sections?.length > 0 && expandedSections.length === 0) {
+        setExpandedSections([data.sections[0].id]);
       }
     } catch (error) {
       console.error('Error fetching class details:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUpdateLevel = (l: 'OL' | 'AL') => {
+    // Basic implementation since we're editing an existing subject
+    // If you need more complex logic, we can add it later.
+  };
+
+  const handleUpdateClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    try {
+      await apiClient.patch(`/classes/${classId}`, {
+        ...editFormData,
+        price: parseFloat(editFormData.price) || 0,
+      });
+      setShowEditModal(false);
+      fetchClassDetails();
+      alert('Class updated successfully!');
+    } catch (error) {
+      console.error('Error updating class:', error);
+      alert('Failed to update class.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteClass = async () => {
+    if (!confirm('Are you absolutely sure you want to delete this class? This cannot be undone.')) return;
+    try {
+      await apiClient.delete(`/classes/${classId}`);
+      alert('Class deleted successfully!');
+      onNavigate?.('teacher-classes');
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      alert('Failed to delete class.');
+    }
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const toggleSection = (id: string) =>
@@ -386,10 +499,12 @@ export function TeacherClassViewPage({
       await apiClient.post(`/classes/sections/${addMaterialSection}/materials`, {
         title: matTitle,
         type: matType,
-        url: finalUrl
+        url: finalUrl,
+        scheduled_at: matType === 'live' ? matScheduledAt : null
       });
       setMatTitle('');
       setMatUrl('');
+      setMatScheduledAt('');
       setMatType('pdf');
       setPdfFile(null);
       setAddMaterialSection(null);
@@ -475,6 +590,22 @@ export function TeacherClassViewPage({
                 'bg-red-500/20 text-red-400'
               }`}>{classData.status.toUpperCase()}</span>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <ClipboardList size={18} className="text-cyan-400" />
+              Edit Class Details
+            </button>
+            <button
+              onClick={handleDeleteClass}
+              className="px-5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-semibold hover:bg-red-500/20 transition-all flex items-center gap-2"
+            >
+              <Trash2 size={18} />
+              Delete Class
+            </button>
           </div>
         </div>
       </div>
@@ -832,39 +963,87 @@ export function TeacherClassViewPage({
            ) : (
              <div className="space-y-4">
                {assignments.map(a => (
-                 <GlassCard key={a.id} className="p-5 flex flex-col md:flex-row gap-5 hover:bg-white/5 transition-all">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                         <h4 className="text-lg font-bold text-white mb-1">{a.title}</h4>
-                         <button onClick={() => handleDeleteAssignment(a.id)} className="text-red-400/50 hover:text-red-400 p-1"><Trash2 size={16}/></button>
-                      </div>
-                      <p className="text-white/60 text-sm mb-3 max-w-xl">{a.description}</p>
-                      <div className="flex flex-wrap gap-3 text-xs">
-                         <span className="bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/20">Due: {new Date(a.deadline).toLocaleString()}</span>
-                         {a.file_url && <a href={a.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded border border-cyan-500/20 hover:bg-cyan-500/20"><Download size={12}/> Attachment</a>}
-                         <span className="text-white/40 flex items-center gap-1"><Users size={12}/> {a.submissions?.length || 0} Submissions</span>
-                      </div>
-                    </div>
-                    {/* View submissions UI could branch here */}
+                  <div key={a.id} className="space-y-4">
+                    <GlassCard className="p-6 gap-6 hover:bg-white/5 transition-all border border-white/10 group">
+                       <div className="flex-1">
+                         <div className="flex items-start justify-between">
+                            <h4 className="text-xl font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors">{a.title}</h4>
+                            <button onClick={() => handleDeleteAssignment(a.id)} className="text-red-400/40 hover:text-red-400 p-2 transition-all hover:bg-red-500/10 rounded-lg"><Trash2 size={18}/></button>
+                         </div>
+                         <p className="text-white/60 text-sm mb-4 leading-relaxed max-w-2xl">{a.description}</p>
+                         <div className="flex flex-wrap gap-4 text-xs font-bold">
+                            <span className="bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg border border-red-500/20 flex items-center gap-2 shadow-sm"><Calendar size={14}/> Due: {new Date(a.deadline).toLocaleString()}</span>
+                            {a.attachment_url && (
+                              <a href={a.attachment_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-lg border border-cyan-500/20 hover:bg-cyan-500/20 transition-all shadow-sm">
+                                <Download size={14}/> <span>Reference Material</span>
+                              </a>
+                            )}
+                            <span className="text-white/40 flex items-center gap-2 px-1"><Users size={14}/> {a.submissions?.length || 0} Submissions</span>
+                         </div>
+                       </div>
+                    </GlassCard>
+
                     {a.submissions && a.submissions.length > 0 && (
-                      <div className="md:w-64 bg-black/20 rounded-xl p-3 border border-white/5 overflow-y-auto max-h-40">
-                         <p className="text-white/40 text-xs font-bold mb-2 uppercase tracking-wide">Recent Submissions</p>
-                         {a.submissions.map((sub: any) => (
-                           <div key={sub.id} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-                              <span className="flex items-center gap-2 text-xs text-white">
-                                <img src={sub.profiles?.profile_photo || 'https://via.placeholder.com/20'} className="w-5 h-5 rounded-full object-cover"/>
-                                {sub.profiles?.first_name}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className={sub.status === 'Late' ? 'text-red-400 text-[10px]' : 'text-green-400 text-[10px]'}>{sub.status}</span>
-                                <a href={sub.file_url} target="_blank" rel="noreferrer" className="text-cyan-400 hover:text-cyan-300"><ExternalLink size={12}/></a>
-                              </div>
-                           </div>
-                         ))}
+                      <div className="ml-4 md:ml-12 mt-2 space-y-4">
+                         <div className="flex items-center gap-2 text-white/30 text-[10px] font-black uppercase tracking-[0.3em] px-2 mb-6">
+                           <div className="w-8 h-px bg-white/10" />
+                           <Users size={12}/> Student Submissions
+                           <div className="flex-1 h-px bg-white/10" />
+                         </div>
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {a.submissions.map((sub: any) => (
+                              <GlassCard key={sub.id} className="p-5 border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all group/sub relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+                                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/[0.03] to-transparent pointer-events-none" />
+                                 <div className="flex items-start justify-between gap-4 relative z-10">
+                                    <div className="flex items-center gap-3">
+                                       <div className="relative">
+                                          <img src={sub.profiles?.profile_photo || 'https://via.placeholder.com/44'} className="w-11 h-11 rounded-full object-cover border-2 border-white/10 shadow-2xl group-hover/sub:border-cyan-500/30 transition-all"/>
+                                          <div className={`absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full border-2 border-[#0B0F1A] flex items-center justify-center ${sub.status === 'Graded' ? 'bg-cyan-500' : 'bg-green-500 animate-pulse'}`}>
+                                             {sub.status === 'Graded' ? <Award size={10} className="text-white"/> : <div className="w-1.5 h-1.5 rounded-full bg-white"/>}
+                                          </div>
+                                       </div>
+                                       <div className="overflow-hidden">
+                                          <p className="text-white font-bold text-sm tracking-tight truncate max-w-[140px]">{sub.profiles?.first_name} {sub.profiles?.last_name}</p>
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                             <span className={`text-[10px] font-black uppercase tracking-widest ${sub.status === 'Late' ? 'text-red-400' : (sub.status === 'Graded' ? 'text-cyan-400' : 'text-green-400')}`}>{sub.status}</span>
+                                             <span className="text-white/20 text-xs">•</span>
+                                             <span className="text-white/30 text-[10px] font-bold">{new Date(sub.created_at).toLocaleDateString()}</span>
+                                          </div>
+                                       </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                       <a href={sub.file_url} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-cyan-400 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-500/30 transition-all shadow-lg">
+                                         <ExternalLink size={20}/>
+                                       </a>
+                                       <button onClick={() => setGradingSubmission(sub)} className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all border border-transparent ${sub.status === 'Graded' ? 'bg-white/5 text-white/40 hover:text-white border-white/10' : 'bg-cyan-600 text-white hover:bg-cyan-500 hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] shadow-lg'}`}>
+                                         <Award size={20}/>
+                                       </button>
+                                    </div>
+                                 </div>
+                                 {sub.status === 'Graded' && (
+                                    <div className="mt-5 pt-4 border-t border-white/5 relative z-10">
+                                       <div className="flex items-center justify-between mb-3">
+                                          <span className="text-[10px] text-white/30 font-black uppercase tracking-[0.1em]">Result</span>
+                                          <div className="flex items-center gap-1.5 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
+                                             <Award size={12} className="text-cyan-400"/>
+                                             <span className="text-xs text-white font-black">{sub.grade}</span>
+                                          </div>
+                                       </div>
+                                       {sub.feedback && (
+                                          <div className="bg-black/20 rounded-lg p-2.5 border border-white/5">
+                                             <p className="text-[11px] text-white/50 italic leading-relaxed line-clamp-2">"{sub.feedback}"</p>
+                                          </div>
+                                       )}
+                                    </div>
+                                 )}
+                              </GlassCard>
+                            ))}
+                         </div>
                       </div>
                     )}
-                 </GlassCard>
-               ))}
+                  </div>
+                ))}
              </div>
            )}
         </div>
@@ -1033,17 +1212,29 @@ export function TeacherClassViewPage({
                 </div>
               )}
 
-              {/* Live Class URL */}
+              {/* Live Class URL & Scheduled At */}
               {matType === 'live' && (
-                <div>
-                  <label className="text-white/60 text-sm font-medium mb-1 block">Live Class Link</label>
-                  <input
-                    value={matUrl}
-                    onChange={(e) => setMatUrl(e.target.value)}
-                    placeholder="https://meet.google.com/xxx-xxxx-xxx or Zoom link..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-green-500/60 transition-all text-sm"
-                  />
-                  <p className="text-white/30 text-xs mt-2">Google Meet and Zoom links will open in the browser. Jitsi / BigBlueButton links will be embedded directly in the LMS.</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/60 text-sm font-medium mb-1 block">Live Class Link</label>
+                    <input
+                      value={matUrl}
+                      onChange={(e) => setMatUrl(e.target.value)}
+                      placeholder="https://meet.google.com/xxx-xxxx-xxx or Zoom link..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-green-500/60 transition-all text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-white/60 text-sm font-medium mb-1 block">Scheduled Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={matScheduledAt}
+                      onChange={(e) => setMatScheduledAt(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-green-500/60 transition-all text-sm [color-scheme:dark]"
+                    />
+                    <p className="text-white/30 text-xs mt-2">When this live session is set to happen. This will show up in the student's upcoming classes.</p>
+                  </div>
+                  <p className="text-white/30 text-xs">Google Meet and Zoom links will open in the browser. Jitsi / BigBlueButton links will be embedded directly in the LMS.</p>
                 </div>
               )}
 
@@ -1070,6 +1261,130 @@ export function TeacherClassViewPage({
                   )}
                 </button>
               </div>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+      {showEditModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !isUpdating && setShowEditModal(false)} />
+          <GlassCard className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 border-cyan-500/30">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <ClipboardList className="text-cyan-400" />
+                Edit Class Details
+              </h2>
+              <button onClick={() => setShowEditModal(false)} className="text-white/40 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateClass} className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-white/60 text-sm font-medium">Class Title</label>
+                  <input required name="title" value={editFormData.title} onChange={handleEditInputChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-white/60 text-sm font-medium">Subject</label>
+                  <select name="subject" value={editFormData.subject} onChange={handleEditInputChange} className="w-full px-4 py-3 bg-[#111827] border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50">
+                    <option value="">Select Subject</option>
+                    <optgroup label="O/L Subjects" className="bg-[#0B0F1A]">
+                      {OL_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </optgroup>
+                    <optgroup label="A/L Subjects" className="bg-[#0B0F1A]">
+                      {Object.values(AL_STREAMS).flat().map(s => <option key={s} value={s}>{s}</option>)}
+                    </optgroup>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-white/60 text-sm font-medium">Description</label>
+                  <textarea required name="description" value={editFormData.description} onChange={handleEditInputChange} rows={4} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50 resize-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-white/60 text-sm font-medium flex items-center gap-2"><DollarSign size={14}/> Price (LKR)</label>
+                    <input required type="number" name="price" value={editFormData.price} onChange={handleEditInputChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-white/60 text-sm font-medium">Mode</label>
+                    <select name="mode" value={editFormData.mode} onChange={handleEditInputChange} className="w-full px-4 py-3 bg-[#111827] border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50">
+                      <option value="Online">Online</option>
+                      <option value="Physical">Physical</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-white/60 text-sm font-medium flex items-center gap-2"><Calendar size={14}/> Start Date</label>
+                  <input type="date" name="start_date" value={editFormData.start_date} onChange={handleEditInputChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-white/60 text-sm font-medium">Thumbnail URL</label>
+                  <input name="thumbnail_url" value={editFormData.thumbnail_url} onChange={handleEditInputChange} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50" />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold">Cancel</button>
+                <button type="submit" disabled={isUpdating} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold flex items-center justify-center gap-2">
+                  {isUpdating ? <Loader2 className="animate-spin" size={20} /> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </GlassCard>
+        </div>
+      )}
+
+      {gradingSubmission && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isGrading && setGradingSubmission(null)} />
+          <GlassCard className="relative w-full max-w-md p-8 border-cyan-500/30 shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Award className="text-cyan-400" size={22} />
+                Grade Submission
+              </h2>
+              <button onClick={() => setGradingSubmission(null)} className="text-white/40 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+               <div>
+                  <p className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-2">Student</p>
+                  <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                     <img src={gradingSubmission.profiles?.profile_photo || 'https://via.placeholder.com/32'} className="w-8 h-8 rounded-full object-cover border border-cyan-500/30"/>
+                     <p className="text-white font-bold">{gradingSubmission.profiles?.first_name} {gradingSubmission.profiles?.last_name}</p>
+                  </div>
+               </div>
+               
+               <div>
+                  <label className="text-white/60 text-sm font-medium mb-2 block">Marks / Grade</label>
+                  <input 
+                    value={gradeValue} 
+                    onChange={e => setGradeValue(e.target.value)} 
+                    placeholder="e.g. 85/100 or A+"
+                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50 transition-all font-bold"
+                  />
+               </div>
+
+               <div>
+                  <label className="text-white/60 text-sm font-medium mb-2 block">Feedback (Optional)</label>
+                  <textarea 
+                    value={feedbackValue} 
+                    onChange={e => setFeedbackValue(e.target.value)} 
+                    rows={3} 
+                    placeholder="Provide helpful comments for the student..."
+                    className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400/50 transition-all resize-none text-sm"
+                  />
+               </div>
+
+               <div className="flex gap-4 pt-4">
+                  <button onClick={() => setGradingSubmission(null)} className="flex-1 py-3 text-white/50 hover:text-white font-semibold flex items-center justify-center gap-2 transition-colors">Cancel</button>
+                  <button onClick={handleGradeSubmission} disabled={isGrading} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                    {isGrading ? <Loader2 className="animate-spin" size={20} /> : <><Award size={18}/> Submit Grade</>}
+                  </button>
+               </div>
             </div>
           </GlassCard>
         </div>

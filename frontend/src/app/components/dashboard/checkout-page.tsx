@@ -81,7 +81,7 @@ export function CheckoutPage({ onLogout, onNavigate, courseData }: CheckoutPageP
       formData.append('slip', uploadedFile);
       formData.append('class_id', course.id);
       formData.append('amount', String(totalAmount));
-      await apiClient.post('/classes/upload-slip', formData, {
+      await apiClient.post('/payments/upload-slip', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setSubmitStatus('submitted');

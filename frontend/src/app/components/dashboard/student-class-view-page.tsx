@@ -5,7 +5,7 @@ import apiClient from '@/api/api-client';
 import {
   ArrowLeft, BookOpen, Calendar, ChevronDown, ChevronUp,
   Download, ExternalLink, FileText, Loader2, MessageCircle,
-  MonitorPlay, Play, Radio, Video, ClipboardList, Upload
+  MonitorPlay, Play, Radio, Video, ClipboardList, Upload, Award
 } from 'lucide-react';
 
 interface StudentClassViewProps {
@@ -397,7 +397,7 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
              ) : (
                <div className="space-y-4">
                  {assignments.map((a: any) => {
-                    const hasSubmitted = a.submissions?.some((sub: any) => sub.student_id);
+                    const mySub = a.submissions && a.submissions[0]; const hasSubmitted = !!mySub;
                     return (
                       <GlassCard key={a.id} className={`p-6 border-l-4 transition-all ${hasSubmitted ? 'border-l-green-500 bg-green-500/5' : 'border-l-cyan-500 hover:bg-white/5'}`}>
                          <div className="flex flex-col md:flex-row gap-6">
@@ -408,8 +408,8 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
                                   <span className={`px-3 py-1 rounded border text-xs font-bold ${new Date() > new Date(a.deadline) && !hasSubmitted ? 'bg-red-500/20 text-red-400 border-red-500/20' : 'bg-white/5 border-white/10 text-white/70'}`}>
                                      Due: {new Date(a.deadline).toLocaleString()}
                                   </span>
-                                  {a.file_url && (
-                                    <a href={a.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded border border-cyan-500/20 hover:bg-cyan-500/20 text-xs font-bold transition-all">
+                                  {a.attachment_url && (
+                                    <a href={a.attachment_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded border border-cyan-500/20 hover:bg-cyan-500/20 text-xs font-bold transition-all">
                                       <Download size={14}/> Download Instructions
                                     </a>
                                   )}
@@ -420,11 +420,24 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
                             <div className="md:w-64 flex flex-col justify-center border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
                                {hasSubmitted ? (
                                   <div className="text-center">
-                                     <div className="w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                                        <FileText size={20}/>
-                                     </div>
-                                     <p className="text-green-400 font-bold text-sm">Submitted Successfully</p>
-                                     <p className="text-green-400/60 text-xs mt-1">Pending Teacher Review</p>
+                                     {a.submissions?.[0]?.status === 'Graded' ? (
+                                       <div className="space-y-2">
+                                          <div className="w-12 h-12 bg-cyan-500/20 text-cyan-400 rounded-full flex items-center justify-center mx-auto">
+                                             <Award size={24}/>
+                                          </div>
+                                          <p className="text-white font-bold text-lg">Grade: {a.submissions[0].grade}</p>
+                                          {a.submissions[0].feedback && <p className="text-white/40 text-[10px] italic line-clamp-2 px-2">"{a.submissions[0].feedback}"</p>}
+                                          <span className="inline-block px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider">Completed</span>
+                                       </div>
+                                     ) : (
+                                       <>
+                                          <div className="w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-2">
+                                             <FileText size={20}/>
+                                          </div>
+                                          <p className="text-green-400 font-bold text-sm">Submitted Successfully</p>
+                                          <p className="text-green-400/60 text-xs mt-1">Pending Teacher Review</p>
+                                       </>
+                                     )}
                                   </div>
                                ) : (
                                   <div className="space-y-3">

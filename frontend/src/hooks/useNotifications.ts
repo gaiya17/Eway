@@ -15,18 +15,18 @@ export interface NotificationItem {
   created_at: string;
 }
 
-export function useNotifications(userId: string | null) {
+export function useNotifications(userId: string | null, userRole?: string) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
 
+    const normalizedRole = userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1).toLowerCase() : null;
+
     // Initial Fetch
     const fetchNotifications = async () => {
       try {
-        // Fetch via your existing backend to respect RLS or policies
-        // Alternatively, since we have the supabase client, we can query directly
         const res = await apiClient.get('/notifications');
         const data = res.data || [];
         setNotifications(data);
@@ -37,8 +37,8 @@ export function useNotifications(userId: string | null) {
     };
     fetchNotifications();
 
-    // Supabase Realtime Listener Setup
-    const channel = supabase
+    // 1. User-specific Channel
+    const userChannel = supabase
       .channel(`user-notifications-${userId}`)
       .on(
         'postgres_changes',
@@ -51,15 +51,42 @@ export function useNotifications(userId: string | null) {
         (payload) => {
           const newNotification = payload.new as NotificationItem;
           setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
+          if (!newNotification.is_read) setUnreadCount(prev => prev + 1);
         }
       )
       .subscribe();
 
+    // 2. Role-based Channel (if applicable)
+    let roleChannel: any = null;
+    if (normalizedRole) {
+      roleChannel = supabase
+        .channel(`role-notifications-${normalizedRole}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `recipient_role=eq.${normalizedRole}`
+          },
+          (payload) => {
+            const newNotification = payload.new as NotificationItem;
+            // Avoid duplicates if both are set (though shouldn't happen)
+            setNotifications(prev => {
+              if (prev.find(n => n.id === newNotification.id)) return prev;
+              return [newNotification, ...prev];
+            });
+            if (!newNotification.is_read) setUnreadCount(prev => prev + 1);
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(userChannel);
+      if (roleChannel) supabase.removeChannel(roleChannel);
     };
-  }, [userId]);
+  }, [userId, userRole]);
 
   const markAsRead = async (notificationId: string) => {
     try {

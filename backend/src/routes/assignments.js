@@ -26,11 +26,21 @@ router.get('/class/:classId', verifyToken, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('assignments')
-      .select('*, submissions(id, student_id, file_url, status, created_at, profiles:student_id(first_name, last_name, profile_photo))')
+      .select('*, submissions(id, student_id, file_url, status, grade, feedback, created_at, profiles:student_id(first_name, last_name, profile_photo))')
       .eq('class_id', req.params.classId)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
+
+    // Security & Logic: Students should only see THEIR OWN submissions
+    if (req.user.role === 'student') {
+      const filteredData = data.map(assignment => ({
+        ...assignment,
+        submissions: assignment.submissions.filter(sub => sub.student_id === req.user.id)
+      }));
+      return res.json(filteredData);
+    }
+
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -75,7 +85,7 @@ router.post('/create', verifyToken, verifyTeacher, upload.single('file'), async 
         title,
         description,
         deadline,
-        file_url: fileUrl
+        attachment_url: fileUrl
       })
       .select()
       .single();
@@ -136,8 +146,8 @@ router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), as
     // Upload submission file
     const fileName = `${req.user.id}_${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const { error: uploadError } = await supabaseAdmin.storage
-      .from('assignments')
-      .upload(`student_submissions/${assignmentId}/${fileName}`, req.file.buffer, {
+      .from('submissions')
+      .upload(`${assignmentId}/${fileName}`, req.file.buffer, {
         contentType: req.file.mimetype,
         upsert: true
       });
@@ -145,8 +155,8 @@ router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), as
     if (uploadError) throw uploadError;
 
     const { data: publicUrlData } = supabaseAdmin.storage
-      .from('assignments')
-      .getPublicUrl(`student_submissions/${assignmentId}/${fileName}`);
+      .from('submissions')
+      .getPublicUrl(`${assignmentId}/${fileName}`);
 
     const fileUrl = publicUrlData.publicUrl;
 
@@ -169,12 +179,53 @@ router.post('/:id/submit', verifyToken, verifyStudent, upload.single('file'), as
        recipient_id: assignment.teacher_id,
        recipient_role: 'Teacher',
        sender_id: req.user.id,
-       title: 'Assignment Submitted',
-       message: `A student has submitted homework for assignment! Status: ${status}`,
+       class_id: null,
+       title: 'New Assignment Submission',
+       message: `A student has submitted homework for your assignment! Status: ${status}`,
        type: 'Assignment'
     });
 
     res.status(201).json(submission);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @route   PATCH /api/assignments/submissions/:submissionId/grade
+ * @desc    Grade a student's submission
+ * @access  Private (Teacher/Admin only)
+ */
+router.patch('/submissions/:submissionId/grade', verifyToken, verifyTeacher, async (req, res) => {
+  try {
+    const { grade, feedback } = req.body;
+    const submissionId = req.params.submissionId;
+
+    // 1. Update the submission
+    const { data: submission, error: updateError } = await supabaseAdmin
+      .from('submissions')
+      .update({
+        grade,
+        feedback,
+        status: 'Graded'
+      })
+      .eq('id', submissionId)
+      .select('*, assignments(title, teacher_id)')
+      .single();
+
+    if (updateError) throw updateError;
+
+    // 2. Notify the student
+    await supabaseAdmin.from('notifications').insert({
+      recipient_id: submission.student_id,
+      recipient_role: 'Student',
+      sender_id: req.user.id,
+      title: 'Assignment Graded',
+      message: `Your assignment "${submission.assignments.title}" has been graded. Grade: ${grade}`,
+      type: 'Assignment'
+    });
+
+    res.json(submission);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

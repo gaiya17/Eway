@@ -14,10 +14,8 @@ require('dotenv').config();
 
 // File upload configuration
 const materialsDir = path.join(__dirname, '../../uploads/materials');
-const slipsDir = path.join(__dirname, '../../uploads/slips');
-
 // Ensure upload directories exist
-[materialsDir, slipsDir].forEach(dir => {
+[materialsDir].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -41,26 +39,7 @@ const uploadMaterial = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
 });
 
-/**
- * Multer storage for bank payment slips
- */
-const slipStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, slipsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `slip-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
-  }
-});
-
-const uploadSlip = multer({
-  storage: slipStorage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Only JPG, PNG, or PDF files are allowed'));
-  },
-  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
-});
+// (uploadMaterial config remains)
 
 // ──────────────────────────────────────────────
 // FILE UPLOAD ROUTES
@@ -238,6 +217,16 @@ router.post('/', verifyToken, verifyTeacher, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // 2. Notify Admin of New Class Request (Role-based)
+    await supabaseAdmin.from('notifications').insert({
+      recipient_role: 'Admin',
+      sender_id: req.user.id,
+      title: '🏫 New Class Request',
+      message: `Teacher has requested to create a new class: "${title}".`,
+      type: 'Class_Request'
+    });
+
     res.status(201).json(data);
   } catch (error) {
     console.error('CREATE CLASS ERROR:', error);
@@ -398,6 +387,8 @@ router.patch('/:id/status', verifyToken, verifyAdmin, async (req, res) => {
       .insert({
         recipient_id: classData.teacher_id,
         recipient_role: 'Teacher',
+        sender_id: req.user.id,
+        class_id: classData.id,
         title: notificationTitle,
         message: notificationMessage,
         type: 'System'
@@ -499,12 +490,19 @@ router.post('/:id/sections', verifyToken, async (req, res) => {
  */
 router.post('/sections/:sectionId/materials', verifyToken, async (req, res) => {
   const { sectionId } = req.params;
-  const { title, type, url, order_index } = req.body;
+  const { title, type, url, order_index, scheduled_at } = req.body;
 
   try {
     const { data, error } = await supabaseAdmin
       .from('class_materials')
-      .insert({ section_id: sectionId, title, type, url, order_index: order_index || 0 })
+      .insert({ 
+        section_id: sectionId, 
+        title, 
+        type, 
+        url, 
+        order_index: order_index || 0,
+        scheduled_at: scheduled_at || null
+      })
       .select()
       .single();
 
@@ -611,7 +609,7 @@ router.get('/:id/analytics', verifyToken, verifyTeacher, async (req, res) => {
 
     const { data: enrollments, error: enrollError } = await supabaseAdmin
       .from('enrollments')
-      .select('created_at, profiles:student_id(id, first_name, last_name, email, profile_photo, student_id)')
+      .select('created_at, profiles!student_id(id, first_name, last_name, email, profile_photo)')
       .eq('class_id', id);
     
     if (enrollError) throw enrollError;
@@ -621,7 +619,7 @@ router.get('/:id/analytics', verifyToken, verifyTeacher, async (req, res) => {
       first_name: e.profiles?.first_name || 'Unknown',
       last_name: e.profiles?.last_name || 'Student',
       email: e.profiles?.email,
-      student_id_code: e.profiles?.student_id,
+      student_id_code: e.profiles?.email ? e.profiles.email.split('@')[0].toUpperCase() : 'STU-' + e.profiles?.id?.substring(0, 5),
       profile_photo: e.profiles?.profile_photo,
       enrolled_at: e.created_at,
       payment_status: 'Approved',
@@ -632,6 +630,85 @@ router.get('/:id/analytics', verifyToken, verifyTeacher, async (req, res) => {
       total_students: students.length,
       roster: students
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route   PATCH /api/classes/:id
+ * @desc    Update class details (Teacher Owner only)
+ * @access  Private (Teacher)
+ */
+router.patch('/:id', verifyToken, verifyTeacher, async (req, res) => {
+  const { id } = req.params;
+  const { title, description, subject, price, mode, thumbnail_url, start_date, duration } = req.body;
+
+  try {
+    // 1. Verify Ownership
+    const { data: clazz, error: fetchErr } = await supabaseAdmin
+      .from('classes')
+      .select('teacher_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !clazz) return res.status(404).json({ error: 'Class not found.' });
+    if (clazz.teacher_id !== req.user.id) return res.status(403).json({ error: 'Unauthorized to edit this class.' });
+
+    // 2. Update
+    const { data, error } = await supabaseAdmin
+      .from('classes')
+      .update({
+        title, description, subject, price, mode, thumbnail_url, start_date, duration,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/classes/:id
+ * @desc    Delete a class permanently (Teacher Owner or Admin only)
+ * @access  Private (Teacher/Admin)
+ */
+router.delete('/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // 1. Check Permissions
+    const { data: clazz, error: fetchErr } = await supabaseAdmin
+      .from('classes')
+      .select('teacher_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !clazz) return res.status(404).json({ error: 'Class not found.' });
+    
+    const isOwner = clazz.teacher_id === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to delete this class.' });
+    }
+
+    // 2. Delete Class (Supabase will handle cascading if configured, but let's be safe)
+    // In our schema, we should ensure enrollments and materials are cleaned up.
+    // If not cascading, we'd delete materials and sections first.
+    
+    const { error: delErr } = await supabaseAdmin
+      .from('classes')
+      .delete()
+      .eq('id', id);
+
+    if (delErr) throw delErr;
+    res.json({ message: 'Class deleted successfully.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

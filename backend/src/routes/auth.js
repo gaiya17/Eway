@@ -9,7 +9,15 @@ const { supabaseAdmin } = require('../config/supabase');
 const { sendEmail } = require('../config/mail');
 const { generateHexToken, generateNumericToken } = require('../utils/token');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+
+/**
+ * @route   GET /api/auth/health
+ * @desc    Health check for auth service
+ * @access  Public
+ */
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', service: 'auth' });
+});
 
 /**
  * @route   POST /api/auth/register

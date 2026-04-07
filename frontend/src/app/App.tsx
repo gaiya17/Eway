@@ -34,7 +34,6 @@ import { TeacherProfile } from './components/dashboard/teacher-profile';
 import { TeacherClassesPage } from './components/dashboard/teacher-classes-page';
 import { TeacherAssignmentsPage } from './components/dashboard/teacher-assignments-page';
 import { TeacherAttendancePage } from './components/dashboard/teacher-attendance-page';
-import { TeacherNotificationsPage } from './components/dashboard/teacher-notifications-page';
 import { TeacherClassViewPage } from './components/dashboard/teacher-class-view-page';
 import { TeacherChatPage } from './components/dashboard/teacher-chat-page';
 import { StaffDashboardHome } from './components/dashboard/staff-dashboard-home';
@@ -43,7 +42,6 @@ import { VerifyPaymentsPage } from './components/dashboard/verify-payments-page'
 import { AttendanceManagementPage } from './components/dashboard/attendance-management-page';
 import { StudentCardsPage } from './components/dashboard/student-cards-page';
 import { ReportsPage } from './components/dashboard/reports-page';
-import { StaffNotificationsPage } from './components/dashboard/staff-notifications-page';
 import { AdminDashboardHome } from './components/dashboard/admin-dashboard-home';
 import { AdminUserManagement } from './components/dashboard/admin-user-management';
 import { AdminChatbotManagement } from './components/dashboard/admin-chatbot-management';
@@ -97,6 +95,7 @@ type PageType =
   | 'admin-chatbot'
   | 'admin-content-management'
   | 'admin-payment-verification'
+  | 'admin-notifications'
   | 'admin-report-generation'
   | 'admin-view-report'
   | 'admin-activity-log'
@@ -303,6 +302,8 @@ function App() {
       setCurrentPage('admin-content-management');
     } else if (page === 'payment-verification') {
       setCurrentPage('admin-payment-verification');
+    } else if (page === 'notifications') {
+      setCurrentPage('admin-notifications');
     } else if (page === 'report-generation') {
       setCurrentPage('admin-report-generation');
     } else if (page === 'view-report') {
@@ -347,7 +348,7 @@ function App() {
         <StudentIdCard onLogout={handleLogout} onNavigate={handleStudentNavigation} />
       )}
       {currentPage === 'student-notifications' && (
-        <NotificationsPage onLogout={handleLogout} onNavigate={handleStudentNavigation} />
+        <NotificationsPage userRole="student" userName="Student" onLogout={handleLogout} onNavigate={handleStudentNavigation} />
       )}
       {currentPage === 'student-classes' && (
         <MyClassesPage onLogout={handleLogout} onNavigate={handleStudentNavigation} />
@@ -422,7 +423,7 @@ function App() {
         <TeacherAttendancePage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
       )}
       {currentPage === 'teacher-notifications' && (
-        <TeacherNotificationsPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
+        <NotificationsPage userRole="teacher" userName="Teacher" onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
       )}
       {currentPage === 'teacher-chat' && (
         <TeacherChatPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
@@ -453,7 +454,7 @@ function App() {
         <ReportsPage onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
       {currentPage === 'staff-notifications' && (
-        <StaffNotificationsPage onLogout={handleLogout} onNavigate={handleStaffNavigation} />
+        <NotificationsPage userRole="staff" userName="Staff" onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
       {currentPage === 'dashboard-admin' && (
         <AdminDashboardHome onLogout={handleLogout} onNavigate={handleAdminNavigation} />
@@ -469,6 +470,9 @@ function App() {
       )}
       {currentPage === 'admin-payment-verification' && (
         <AdminPaymentVerification onLogout={handleLogout} onNavigate={handleAdminNavigation} />
+      )}
+      {currentPage === 'admin-notifications' && (
+        <NotificationsPage userRole="admin" userName="Admin" onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-report-generation' && (
         <AdminReportGeneration onLogout={handleLogout} onNavigate={handleAdminNavigation} />

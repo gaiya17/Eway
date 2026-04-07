@@ -35,3 +35,6 @@ logs/
 
 # Supabase
 .supabase/
+
+# Uploads
+backend/uploads/

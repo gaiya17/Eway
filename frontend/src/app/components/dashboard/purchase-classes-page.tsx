@@ -71,7 +71,7 @@ export function PurchaseClassesPage({ onLogout, onNavigate }: PurchaseClassesPag
       const [classesRes, enrollRes, paymentsRes] = await Promise.allSettled([
         apiClient.get('/classes/approved'),
         apiClient.get('/payments/my-enrollments'),
-        apiClient.get('/classes/my-payments'),
+        apiClient.get('/payments/my-payments'),
       ]);
 
       if (classesRes.status === 'fulfilled') {

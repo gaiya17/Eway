@@ -45,7 +45,7 @@ export function VerifyPaymentsPage({ onLogout, onNavigate }: VerifyPaymentsPageP
     try {
       const params: any = {};
       if (statusFilter !== 'all') params.status = statusFilter;
-      const res = await apiClient.get('/classes/payments/all', { params });
+      const res = await apiClient.get('/payments/all', { params });
       setPayments(res.data || []);
     } catch (e) {
       console.error('Error fetching payments:', e);
@@ -72,7 +72,7 @@ export function VerifyPaymentsPage({ onLogout, onNavigate }: VerifyPaymentsPageP
     if (!selectedPayment) return;
     setIsActionLoading(true); setActionError('');
     try {
-      await apiClient.patch(`/classes/payments/${selectedPayment.id}/approve`);
+      await apiClient.patch(`/payments/${selectedPayment.id}/approve`);
       setShowApproveModal(false);
       setSelectedPayment(null);
       await fetchPayments();
@@ -87,7 +87,7 @@ export function VerifyPaymentsPage({ onLogout, onNavigate }: VerifyPaymentsPageP
     }
     setIsActionLoading(true); setActionError('');
     try {
-      await apiClient.patch(`/classes/payments/${selectedPayment.id}/reject`, { rejection_reason: rejectReason });
+      await apiClient.patch(`/payments/${selectedPayment.id}/reject`, { rejection_reason: rejectReason });
       setShowRejectModal(false);
       setSelectedPayment(null);
       setRejectReason('');
