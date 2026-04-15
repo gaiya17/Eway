@@ -25,8 +25,9 @@ const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notifications');
 const assignmentsRoutes = require('./routes/assignments');
 
-// NOTE: studyPacks route is currently disabled as the file is missing from src/routes
-// const studyPackRoutes = require('./routes/studyPacks');
+const studyPacksRouter = require('./routes/study-packs');
+const freeTutorialsRouter = require('./routes/free-tutorials');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -43,6 +44,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/uploads/materials', express.static(path.join(__dirname, '../uploads/materials')));
 app.use('/uploads/slips', express.static(path.join(__dirname, '../uploads/slips')));
+app.use('/uploads/tutorials', express.static(path.join(__dirname, '../uploads/tutorials')));
 
 // API Sub-route Mounting
 app.use('/api/auth', authRoutes);
@@ -53,8 +55,9 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/assignments', assignmentsRoutes);
 
-// NOTE: studyPacks route disabled
-// app.use('/api/studypacks', studyPackRoutes);
+app.use('/api/study-packs', studyPacksRouter);
+app.use('/api/free-tutorials', freeTutorialsRouter);
+app.use('/api/admin', adminRouter);
 
 /**
  * Root health check route

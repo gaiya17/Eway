@@ -46,7 +46,7 @@ export function StudentProfile({ onLogout, onNavigate }: StudentProfileProps) {
     email: '',
     mobile: '',
     birthday: '',
-    id: '',
+    studentId: '',
     profilePhoto: '',
   });
 
@@ -63,7 +63,7 @@ export function StudentProfile({ onLogout, onNavigate }: StudentProfileProps) {
         email: profile.email || '',
         mobile: profile.phone || '',
         birthday: profile.birthday ? new Date(profile.birthday).toISOString().split('T')[0] : '',
-        id: profile.id || '',
+        studentId: profile.student_id || 'PENDING',
         profilePhoto: profile.profile_photo || '',
       });
     } catch (error) {
@@ -247,7 +247,7 @@ export function StudentProfile({ onLogout, onNavigate }: StudentProfileProps) {
                   {/* Student ID */}
                   <div className="px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-400/20 mb-4 inline-flex items-center gap-2">
                     <Shield size={14} className="text-cyan-400" />
-                    <p className="text-cyan-300 font-bold text-xs tracking-wider uppercase">ID: {formData.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-cyan-300 font-bold text-xs tracking-wider uppercase">ID: {formData.studentId}</p>
                   </div>
 
                   {/* Info */}

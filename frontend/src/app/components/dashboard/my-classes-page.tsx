@@ -68,11 +68,33 @@ export function MyClassesPage({ onLogout, onNavigate }: MyClassesPageProps) {
         apiClient.get('/payments/my-enrollments'),
         apiClient.get('/payments/my-payments'),
       ]);
-      if (enrollRes.status === 'fulfilled') setEnrollments(enrollRes.value.data || []);
+
+      let currentEnrollments: Enrollment[] = [];
+      if (enrollRes.status === 'fulfilled') {
+        currentEnrollments = enrollRes.value.data || [];
+        setEnrollments(currentEnrollments);
+      }
+
       if (paymentRes.status === 'fulfilled') {
-        // Only show pending/rejected (not approved — those show as enrollments)
-        const pending = (paymentRes.value.data || []).filter((p: Payment) => p.status !== 'approved');
-        setPayments(pending);
+        const rawPayments = paymentRes.value.data || [];
+        
+        // Create a set of enrolled class IDs for quick lookup
+        const enrolledClassIds = new Set(currentEnrollments.map(e => e.classes.id));
+        
+        // Deduplicate payments: only show the latest record per class if not already enrolled
+        // The backend returns payments sorted by submitted_at DESC, so the first one we find for a class is the latest.
+        const uniquePayments: Payment[] = [];
+        const seenClassIds = new Set<string>();
+
+        rawPayments.forEach((p: Payment) => {
+          const classId = p.classes.id;
+          if (p.status !== 'approved' && !enrolledClassIds.has(classId) && !seenClassIds.has(classId)) {
+            uniquePayments.push(p);
+            seenClassIds.add(classId);
+          }
+        });
+
+        setPayments(uniquePayments);
       }
     } catch (e) {
       console.error('Error loading classes:', e);

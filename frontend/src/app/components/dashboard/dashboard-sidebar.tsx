@@ -60,7 +60,8 @@ export function DashboardSidebar({ userRole, activePage = 'dashboard', onNavigat
       return [
         ...commonItems,
         { id: 'teacher-classes', label: 'My Classes', icon: BookOpen },
-        { id: 'teacher-assignments', label: 'Assignments', icon: ClipboardList },
+        { id: 'teacher-study-packs', label: 'Study Packs', icon: Database },
+        { id: 'teacher-tutorials', label: 'Free Tutorials', icon: Youtube },
         { id: 'teacher-attendance', label: 'Attendance', icon: QrCode },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'teacher-chat', label: 'Chat with Students', icon: MessageCircle },
@@ -82,7 +83,7 @@ export function DashboardSidebar({ userRole, activePage = 'dashboard', onNavigat
       return [
         { id: 'dashboard', label: 'Dashboard', icon: Home, section: 'main' },
         { id: 'user-management', label: 'User Management', icon: Users, section: 'main' },
-        { id: 'content-management', label: 'Content Management', icon: BookOpen, section: 'main' },
+        { id: 'content-management', label: 'Content Approval Hub', icon: BookOpen, section: 'main' },
         { id: 'chatbot-management', label: 'Chatbot Management', icon: MessageSquare, section: 'main' },
         { id: 'payment-verification', label: 'Payment Verification', icon: CreditCard, section: 'main' },
         { id: 'notifications', label: 'Notifications', icon: Bell, section: 'main' },

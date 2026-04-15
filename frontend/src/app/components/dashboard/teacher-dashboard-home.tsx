@@ -15,6 +15,7 @@ import {
   Award,
   Activity,
   BarChart3,
+  Radio,
 } from 'lucide-react';
 import {
   LineChart,
@@ -25,6 +26,84 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+
+// ─── Countdown Hook ────────────────────────────────────────────────────────
+function useCountdown(targetDate: string | null) {
+  const [timeLeft, setTimeLeft] = React.useState('');
+  const [isLive, setIsLive] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!targetDate) return;
+    const update = () => {
+      const now = Date.now();
+      const start = new Date(targetDate).getTime();
+      const end = start + 3 * 60 * 60 * 1000;
+      const diff = start - now;
+      if (now >= start && now <= end) {
+        setIsLive(true); setTimeLeft('LIVE NOW');
+      } else if (now > end) {
+        setIsLive(false); setTimeLeft('Ended');
+      } else {
+        setIsLive(false);
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setTimeLeft(h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`);
+      }
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [targetDate]);
+
+  return { timeLeft, isLive };
+}
+
+// ─── Upcoming Class Row ────────────────────────────────────────────────────
+function TeacherUpcomingClassRow({ session, onNavigate }: { session: any; onNavigate: (page: string) => void }) {
+  const { timeLeft, isLive } = useCountdown(session.rawTime);
+  
+  return (
+    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 group ${
+      isLive ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/5 border-green-500/30' 
+             : 'bg-white/5 border-white/10'
+    }`}>
+      <div className="flex items-center gap-4 flex-1">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+          isLive ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-white/10'
+        }`}>
+          <Radio size={24} className={isLive ? 'text-white animate-pulse' : 'text-white/60'} />
+        </div>
+        <div>
+          <h3 className="text-white font-bold text-lg">{session.title}</h3>
+          <p className="text-white/60 text-sm mt-0.5">{session.className}</p>
+        </div>
+      </div>
+      <div className="text-right sm:mr-6 hidden sm:block">
+        <div className="flex items-center justify-end gap-2 text-white/70 text-sm mb-1.5">
+          <Clock size={14} />
+          {session.time}
+        </div>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold font-mono tracking-wide flex items-center justify-end gap-1.5 inline-flex ${
+          isLive
+            ? 'bg-green-500 text-white animate-pulse'
+            : timeLeft === 'Ended'
+            ? 'bg-white/10 text-white/40'
+            : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+        }`}>
+          {isLive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
+          {isLive ? 'LIVE NOW' : timeLeft}
+        </span>
+      </div>
+      <button 
+        onClick={() => onNavigate('teacher-classes')}
+        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold text-sm shadow-md transition-all hover:scale-105 flex items-center gap-2 ml-4 sm:ml-0"
+      >
+        <Radio size={16} /> Start Class
+      </button>
+    </div>
+  );
+}
 
 interface TeacherDashboardHomeProps {
   onLogout?: () => void;
@@ -135,6 +214,22 @@ export function TeacherDashboardHome({
       textColor: 'text-purple-400',
       change: '+2% from last week',
     },
+  ];
+
+  // Generate some realistic upcoming live sessions for the demo
+  const upcomingSessions = [
+    {
+      title: 'Week 4: Advanced Database Queries',
+      className: 'Database Systems',
+      time: 'In 30 mins',
+      rawTime: new Date(Date.now() + 30 * 60000).toISOString(),
+    },
+    {
+      title: 'UI Component Library Design',
+      className: 'Web Development',
+      time: 'Tomorrow, 10:00 AM',
+      rawTime: new Date(Date.now() + 24 * 3600000).toISOString(),
+    }
   ];
 
   const recentActivity = [
@@ -261,6 +356,16 @@ export function TeacherDashboardHome({
           >
             View My Profile
           </button>
+        </div>
+      </GlassCard>
+
+      {/* Upcoming Live Sessions */}
+      <h2 className="text-xl font-bold text-white mb-4">Your Upcoming Live Classes</h2>
+      <GlassCard className="p-6 mb-6">
+        <div className="space-y-4">
+          {upcomingSessions.map((session, index) => (
+            <TeacherUpcomingClassRow key={index} session={session} onNavigate={onNavigate || (() => {})} />
+          ))}
         </div>
       </GlassCard>
 

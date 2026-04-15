@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../config/supabase');
-const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { verifyToken, verifyAdmin, verifyStaff } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -43,6 +43,44 @@ const upload = multer({
 // ──────────────────────────────────────────────
 // ADMIN USER MANAGEMENT
 // ──────────────────────────────────────────────
+
+/**
+ * @route   GET /api/users/students
+ * @desc    List all students with their classes and ID card status
+ * @access  Private (Staff/Admin)
+ */
+router.get('/students', verifyToken, verifyStaff, async (req, res) => {
+  try {
+    const { data: students, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id, first_name, last_name, email, student_id, profile_photo, created_at')
+      .eq('role', 'student')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Enhance students with class enrollments
+    const enhancedStudents = await Promise.all(students.map(async (student) => {
+      const { data: enrollments } = await supabaseAdmin
+        .from('enrollments')
+        .select('classes(subject)')
+        .eq('student_id', student.id)
+        .eq('status', 'active');
+
+      const classNames = (enrollments || []).map(e => e.classes?.subject).filter(Boolean);
+      
+      return {
+        ...student,
+        className: classNames.length > 0 ? classNames.join(', ') : 'Unassigned',
+      };
+    }));
+
+    res.json(enhancedStudents);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 /**
  * @route   GET /api/users
@@ -453,6 +491,130 @@ router.get('/student/dashboard', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('STU DASHBOARD ERROR:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/users/student/performance
+ * @desc    Get aggregated performance data for student with rank and class comparison
+ * @access  Private (Student)
+ */
+router.get('/student/performance', verifyToken, async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    
+    // Fetch submissions with grades, assignments and subjects
+    const { data: submissions, error } = await supabaseAdmin
+      .from('submissions')
+      .select(`
+        id,
+        grade,
+        assignment_id,
+        created_at,
+        assignments (
+          id,
+          title,
+          classes (
+            subject
+          )
+        )
+      `)
+      .eq('student_id', studentId)
+      .not('grade', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const validSubmissions = (submissions || []).filter(sub => sub.assignments && sub.assignments.classes);
+
+    // 1. performanceTrends - Last 6 exams (chronological order)
+    // We'll also fetch class average for each to show comparison
+    const performanceTrends = await Promise.all(validSubmissions.slice(0, 6).reverse().map(async (sub) => {
+      const { data: allGrades } = await supabaseAdmin
+        .from('submissions')
+        .select('grade')
+        .eq('assignment_id', sub.assignment_id);
+      
+      const classAvg = allGrades && allGrades.length > 0
+        ? allGrades.reduce((acc, curr) => acc + (parseFloat(curr.grade) || 0), 0) / allGrades.length
+        : 0;
+
+      return {
+        id: sub.id,
+        exam: sub.assignments.title,
+        score: parseFloat(sub.grade) || 0,
+        classAverage: Math.round(classAvg)
+      };
+    }));
+
+    // 2. subjectAverages
+    const subjectData = {};
+    validSubmissions.forEach(sub => {
+      const subject = sub.assignments.classes.subject;
+      if (!subjectData[subject]) {
+        subjectData[subject] = { total: 0, count: 0 };
+      }
+      subjectData[subject].total += parseFloat(sub.grade) || 0;
+      subjectData[subject].count += 1;
+    });
+
+    const subjectAverages = Object.keys(subjectData).map(subj => {
+      return {
+        id: subj.toLowerCase().replace(/\s+/g, '-'),
+        subject: subj,
+        average: Math.round(subjectData[subj].total / subjectData[subj].count)
+      };
+    });
+
+    // 3. summary cards
+    let strongestSubject = { subject: 'N/A', average: 0 };
+    let needsImprovement = { subject: 'N/A', average: 100 };
+    let overallProgress = 0;
+
+    if (subjectAverages.length > 0) {
+      subjectAverages.forEach(s => {
+        if (s.average > strongestSubject.average) strongestSubject = s;
+        if (s.average < needsImprovement.average) needsImprovement = s;
+      });
+
+      let totalOverall = subjectAverages.reduce((acc, curr) => acc + curr.average, 0);
+      overallProgress = Math.round(totalOverall / subjectAverages.length);
+    } else {
+      needsImprovement.average = 0;
+    }
+
+    // 4. recentExams (Latest 5) with Rank
+    const recentExams = await Promise.all(validSubmissions.slice(0, 5).map(async (sub) => {
+      // Calculate Rank: count of students with higher grade in this assignment + 1
+      const { count: higherGradesCount } = await supabaseAdmin
+        .from('submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('assignment_id', sub.assignment_id)
+        .gt('grade', sub.grade);
+
+      return {
+        date: sub.created_at,
+        exam: sub.assignments.title,
+        subject: sub.assignments.classes.subject,
+        total: parseFloat(sub.grade) || 0,
+        rank: (higherGradesCount || 0) + 1
+      };
+    }));
+
+    res.json({
+      performanceTrends,
+      subjectAverages,
+      recentExams,
+      summaryStats: {
+        strongestSubject,
+        needsImprovement,
+        overallProgress
+      }
+    });
+
+  } catch (error) {
+    console.error('STU PERFORMANCE ERROR:', error);
     res.status(500).json({ error: error.message });
   }
 });

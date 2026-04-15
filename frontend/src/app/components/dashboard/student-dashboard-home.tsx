@@ -1,26 +1,94 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import { AIChat } from './ai-chat';
 import apiClient from '@/api/api-client';
 import { DemoGuide } from './demo-guide';
 import {
-  BookOpen,
-  QrCode,
-  FileText,
-  CreditCard,
-  TrendingUp,
-  Clock,
-  Video,
-  CheckCircle,
-  Calendar,
-  DollarSign,
-  Award,
-  Target,
-  Radio,
-  ExternalLink,
-  Loader2
+  BookOpen, QrCode, FileText, CreditCard, TrendingUp, Clock,
+  Video, CheckCircle, Calendar, DollarSign, Award, Target,
+  Radio, ExternalLink, Loader2, ArrowRight
 } from 'lucide-react';
+
+// ─── Countdown Hook ────────────────────────────────────────────────────────
+function useCountdown(targetDate: string | null) {
+  const [timeLeft, setTimeLeft] = useState('');
+  const [isLive, setIsLive] = useState(false);
+
+  useEffect(() => {
+    if (!targetDate) return;
+    const update = () => {
+      const now = Date.now();
+      const start = new Date(targetDate).getTime();
+      const end = start + 3 * 60 * 60 * 1000;
+      const diff = start - now;
+      if (now >= start && now <= end) {
+        setIsLive(true); setTimeLeft('LIVE NOW');
+      } else if (now > end) {
+        setIsLive(false); setTimeLeft('Ended');
+      } else {
+        setIsLive(false);
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setTimeLeft(h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`);
+      }
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [targetDate]);
+
+  return { timeLeft, isLive };
+}
+
+// ─── Upcoming Class Row ────────────────────────────────────────────────────
+function UpcomingClassRow({ classItem, onNavigate }: { classItem: any; onNavigate: (page: string, data?: any) => void }) {
+  const { timeLeft, isLive } = useCountdown(classItem.rawTime);
+  
+  return (
+    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 group ${
+      isLive ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/5 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)]' 
+             : 'bg-white/5 hover:bg-white/10 border-white/10'
+    }`}>
+      <div className="flex items-center gap-4 flex-1">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+          isLive ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+                 : 'bg-white/10'
+        }`}>
+          <Radio size={24} className={isLive ? 'text-white animate-pulse' : 'text-white/60'} />
+        </div>
+        <div>
+          <h3 className="text-white font-bold text-lg leading-tight">{classItem.name || classItem.title}</h3>
+          <p className="text-white/60 text-sm mt-0.5">{classItem.teacher}</p>
+        </div>
+      </div>
+      <div className="text-right sm:mr-6 hidden sm:block">
+        <div className="flex items-center justify-end gap-2 text-white/70 text-sm mb-1.5">
+          <Clock size={14} />
+          {classItem.time}
+        </div>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold font-mono tracking-wide flex items-center justify-end gap-1.5 inline-flex ${
+          isLive
+            ? 'bg-green-500 text-white animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.5)]'
+            : timeLeft === 'Ended'
+            ? 'bg-white/10 text-white/40'
+            : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+        }`}>
+          {isLive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
+          {isLive ? 'LIVE NOW' : timeLeft}
+        </span>
+      </div>
+      <button 
+        onClick={() => onNavigate('class-dashboard', { classId: classItem.classId })}
+        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold text-sm shadow-md hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition-all hover:-translate-y-0.5 flex items-center gap-2 group-hover:scale-105 ml-4 sm:ml-0"
+      >
+        Open
+        <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+      </button>
+    </div>
+  );
+}
 
 interface StudentDashboardHomeProps {
   onLogout?: () => void;
@@ -59,7 +127,7 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
         setProfile({
           firstName: pData.first_name || 'Student',
           lastName: pData.last_name || '',
-          studentId: pData.id || 'N/A',
+          studentId: pData.student_id || 'PENDING',
           profilePhoto: pData.profile_photo || '',
         });
 
@@ -269,7 +337,7 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
                     )}
                   </div>
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 text-white text-sm font-bold whitespace-nowrap shadow-lg">
-                    ID: {profile?.studentId ? profile.studentId.toString().slice(0, 8).toUpperCase() : '12345'}
+                    ID: {profile?.studentId ? profile.studentId : 'PENDING'}
                   </div>
                 </div>
               </div>
@@ -405,41 +473,7 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
                   </div>
                 ) : (
                   dashboardData.upcomingClasses.map((classItem, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300 group"
-                    >
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                          <Radio size={24} className="text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-white font-bold text-lg">{classItem.name}</h3>
-                          <p className="text-white/60 text-sm">{classItem.teacher}</p>
-                        </div>
-                      </div>
-                      <div className="text-right mr-6">
-                        <div className="flex items-center gap-2 text-white/70 text-sm mb-1">
-                          <Clock size={14} />
-                          {classItem.time}
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          classItem.status === 'Starting Soon'
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            : 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        }`}>
-                          {classItem.status}
-                        </span>
-                      </div>
-                      <a 
-                        href={classItem.url} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(59,130,246,0.6)] transition-all duration-300 opacity-0 group-hover:opacity-100"
-                      >
-                        Join Class
-                      </a>
-                    </div>
+                    <UpcomingClassRow key={index} classItem={classItem} onNavigate={onNavigate || (() => {})} />
                   ))
                 )}
               </div>

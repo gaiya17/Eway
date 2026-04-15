@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import { AIChat } from './ai-chat';
@@ -18,8 +18,13 @@ import {
   Star,
   BookOpen,
   FileCode,
-  FileSpreadsheet,
+  Loader2,
+  ExternalLink,
+  ChevronRight,
+  Info,
+  Link as LinkIcon,
 } from 'lucide-react';
+import apiClient from '@/api/api-client';
 
 interface StudyPackPreviewPageProps {
   onLogout?: () => void;
@@ -27,12 +32,13 @@ interface StudyPackPreviewPageProps {
   packData?: any;
 }
 
-interface FileItem {
-  id: number;
-  title: string;
-  type: 'pdf' | 'video' | 'notes' | 'code';
-  size: string;
-  isLocked: boolean;
+interface PackContent {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: 'pdf' | 'video' | 'link';
+  is_preview: boolean;
+  order_index: number;
 }
 
 export function StudyPackPreviewPage({
@@ -40,143 +46,134 @@ export function StudyPackPreviewPage({
   onNavigate,
   packData,
 }: StudyPackPreviewPageProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [pack, setPack] = useState<any>(packData || null);
+  const [contents, setContents] = useState<PackContent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [activeContent, setActiveContent] = useState<PackContent | null>(null);
 
-  // Default pack data if none provided
-  const pack = packData || {
-    id: 1,
-    subject: 'ICT',
-    title: 'Complete ICT Study Pack 2026',
-    description:
-      'Comprehensive materials including notes, past papers, tutorials, and recorded lessons. Everything you need to excel in A/L ICT.',
-    fileCount: 45,
-    fileSize: '1.2 GB',
-    downloads: 324,
-    updatedAt: '2 weeks ago',
-    price: 2500,
-    popularityScore: 95,
-    previewVideo:
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2RpbmclMjBzY3JlZW58ZW58MHx8fHwxNzQwMzM3MjAwfDA&ixlib=rb-4.0.3&q=80&w=1080',
-    videoDuration: '12:45',
-  };
-
-  // Sample file list
-  const fileList: FileItem[] = [
-    {
-      id: 1,
-      title: 'Lesson 1 - Networking Basics.pdf',
-      type: 'pdf',
-      size: '5.2 MB',
-      isLocked: false,
-    },
-    {
-      id: 2,
-      title: 'Introduction to Programming - Video Lesson.mp4',
-      type: 'video',
-      size: '124 MB',
-      isLocked: false,
-    },
-    {
-      id: 3,
-      title: 'Database Management - Lecture Notes.pdf',
-      type: 'notes',
-      size: '3.8 MB',
-      isLocked: false,
-    },
-    {
-      id: 4,
-      title: 'Web Development Tutorial - HTML & CSS.pdf',
-      type: 'pdf',
-      size: '8.5 MB',
-      isLocked: true,
-    },
-    {
-      id: 5,
-      title: 'Python Programming Examples.py',
-      type: 'code',
-      size: '2.1 MB',
-      isLocked: true,
-    },
-    {
-      id: 6,
-      title: 'Past Paper 2025 - Theory Section.pdf',
-      type: 'pdf',
-      size: '6.3 MB',
-      isLocked: true,
-    },
-    {
-      id: 7,
-      title: 'System Analysis & Design Video.mp4',
-      type: 'video',
-      size: '98 MB',
-      isLocked: true,
-    },
-    {
-      id: 8,
-      title: 'Algorithm Optimization Techniques.pdf',
-      type: 'notes',
-      size: '4.7 MB',
-      isLocked: true,
-    },
-    {
-      id: 9,
-      title: 'Data Structures - Complete Guide.pdf',
-      type: 'pdf',
-      size: '7.2 MB',
-      isLocked: true,
-    },
-    {
-      id: 10,
-      title: 'Project Development Tutorial.mp4',
-      type: 'video',
-      size: '156 MB',
-      isLocked: true,
-    },
-  ];
-
-  const getFileIcon = (type: string) => {
-    switch (type) {
-      case 'video':
-        return Video;
-      case 'notes':
-        return BookOpen;
-      case 'code':
-        return FileCode;
-      default:
-        return FileText;
+  useEffect(() => {
+    if (pack?.id) {
+      fetchPackDetails();
     }
-  };
+  }, [pack?.id]);
 
-  const getTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'video':
-        return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-      case 'notes':
-        return 'bg-green-500/20 text-green-400 border-green-500/30';
-      case 'code':
-        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-      default:
-        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+  const fetchPackDetails = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch Basic Details and Preview Contents
+      const response = await apiClient.get(`/study-packs/${pack.id}`);
+      setPack(response.data);
+      setContents(response.data.contents || []);
+
+      // 2. Check Enrollment / Purchase Status
+      try {
+        const accessResponse = await apiClient.get(`/study-packs/${pack.id}/access`);
+        if (accessResponse.data && accessResponse.status === 200) {
+          setContents(accessResponse.data);
+          setIsEnrolled(true);
+        }
+      } catch (e) {
+        // Not purchased yet or forbidden, that's fine for preview
+        setIsEnrolled(false);
+      }
+
+      // 3. Optional: Only set default active content if user is enrolled
+      if (isEnrolled && (response.data.contents || []).length > 0) {
+        setActiveContent(response.data.contents[0]);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching pack details:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleBack = () => {
-    if (onNavigate) {
-      onNavigate('study-packs');
-    }
+    if (onNavigate) onNavigate('study-packs');
   };
 
-  const handlePurchase = () => {
-    if (onNavigate) {
-      onNavigate('pack-checkout', pack);
-    }
+  const handlePurchaseNavigation = () => {
+    if (onNavigate) onNavigate('pack-checkout', pack);
   };
 
-  const handlePlayPreview = () => {
-    setIsPlaying(true);
-    // In production, this would open a video player
-    setTimeout(() => setIsPlaying(false), 2000);
+  const isYouTube = (url: string) => {
+    return url?.includes('youtube.com') || url?.includes('youtu.be') || false;
   };
+
+  const getYouTubeEmbedUrl = (url: string) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+  };
+
+  const renderViewer = () => {
+    if (!activeContent) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-black/40">
+           <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+              <Play size={32} className="text-white/20" />
+           </div>
+           <h3 className="text-white font-bold text-lg">Select a preview item</h3>
+           <p className="text-white/40 text-sm max-w-xs">Click on any item with a "Preview" badge to view internal content.</p>
+        </div>
+      );
+    }
+
+    if (activeContent.file_type === 'pdf') {
+       return (
+         <iframe 
+           src={`${activeContent.file_url}#toolbar=0`} 
+           className="w-full h-full border-none" 
+           title={activeContent.file_name}
+         />
+       );
+    }
+
+    if (activeContent.file_type === 'link' && isYouTube(activeContent.file_url)) {
+      return (
+        <iframe
+          className="w-full h-full"
+          src={getYouTubeEmbedUrl(activeContent.file_url) || ''}
+          title="YouTube video player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        ></iframe>
+      );
+    }
+
+    if (activeContent.file_type === 'video') {
+      return (
+        <video key={activeContent.id} controls className="w-full h-full bg-black">
+          <source src={activeContent.file_url} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      );
+    }
+
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-black/40">
+         <LinkIcon size={48} className="text-cyan-400 mb-4" />
+         <h3 className="text-white font-bold text-lg">External Link</h3>
+         <p className="text-white/40 text-sm mb-6">This item is a link to an external resource.</p>
+         <a href={activeContent.file_url} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-xl bg-cyan-500 text-white font-bold">
+            Open Resource
+         </a>
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0} breadcrumb="Loading Pack..." activePage="study-packs" onNavigate={onNavigate} onLogout={onLogout}>
+        <div className="h-[600px] flex items-center justify-center">
+           <Loader2 className="animate-spin text-cyan-400" size={48} />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <>
@@ -185,313 +182,151 @@ export function StudyPackPreviewPage({
         userName="Gayantha"
         userInitials="GP"
         notificationCount={5}
-        breadcrumb="Study Packs / Preview"
+        breadcrumb={`${pack.subject} Study Pack`}
         activePage="study-packs"
         onNavigate={onNavigate}
         onLogout={onLogout}
       >
         <div className="space-y-8">
-          {/* Header */}
-          <div>
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors mb-4 group"
-            >
-              <ArrowLeft
-                size={20}
-                className="group-hover:-translate-x-1 transition-transform"
-              />
-              <span className="font-semibold">Back to Study Packs</span>
-            </button>
-
-            <h1 className="text-4xl font-bold text-white mb-2">
-              {pack.subject} Study Pack Preview
-            </h1>
-            <p className="text-white/60 text-lg">Explore contents before purchasing</p>
+          {/* Header Strip */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+               <button onClick={handleBack} className="p-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all">
+                  <ArrowLeft size={20} />
+               </button>
+               <div>
+                  <h1 className="text-3xl font-bold text-white uppercase tracking-tight">{pack.title}</h1>
+                  <p className="text-cyan-400 text-sm font-semibold uppercase">{pack.level} • {pack.subject}</p>
+               </div>
+            </div>
+            {!isEnrolled && (
+              <button 
+                onClick={handlePurchaseNavigation}
+                className="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold hover:shadow-[0_0_32px_rgba(59,130,246,0.6)] transition-all flex items-center gap-2"
+              >
+                <ShoppingCart size={20} /> Enroll Now • LKR {pack.price?.toLocaleString()}
+              </button>
+            )}
           </div>
 
-          {/* Main Content - Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Side - Preview Content (2/3 width) */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Video Preview Card */}
-              <GlassCard className="p-0 overflow-hidden">
-                <div className="relative h-80 overflow-hidden group cursor-pointer">
-                  {/* Video Thumbnail */}
-                  <ImageWithFallback
-                    src={pack.previewVideo}
-                    alt="Preview lesson"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Viewer Section */}
+            <div className="lg:col-span-8 space-y-6">
+               <GlassCard className="p-0 overflow-hidden bg-black/60 border-white/5 aspect-video flex flex-col items-center justify-center relative shadow-2xl">
+                  {renderViewer()}
+               </GlassCard>
 
-                  {/* Dark Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F1A] via-[#0B0F1A]/40 to-transparent" />
-
-                  {/* Play Button */}
-                  <button
-                    onClick={handlePlayPreview}
-                    className="absolute inset-0 flex items-center justify-center group/play"
-                  >
-                    <div
-                      className={`w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-[0_0_32px_rgba(59,130,246,0.6)] group-hover/play:scale-110 group-hover/play:shadow-[0_0_48px_rgba(59,130,246,0.8)] transition-all duration-300 ${
-                        isPlaying ? 'scale-95' : ''
-                      }`}
-                    >
-                      <Play size={32} className="text-white ml-1 fill-white" />
-                    </div>
-                  </button>
-
-                  {/* Duration Badge */}
-                  <div className="absolute top-4 right-4">
-                    <div className="px-3 py-1.5 rounded-lg bg-black/80 backdrop-blur-sm border border-white/20">
-                      <span className="text-white font-semibold text-sm">
-                        {pack.videoDuration}
-                      </span>
-                    </div>
+               <GlassCard className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <BookOpen size={20} className="text-cyan-400" /> Pack Description
+                     </h2>
                   </div>
-
-                  {/* Label */}
-                  <div className="absolute bottom-4 left-4">
-                    <div className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500/90 to-cyan-500/90 backdrop-blur-sm border border-white/30">
-                      <span className="text-white font-bold">Preview Lesson</span>
-                    </div>
-                  </div>
-                </div>
-              </GlassCard>
-
-              {/* File List Card */}
-              <GlassCard className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                    <Files size={28} className="text-cyan-400" />
-                    Study Pack Contents
-                  </h2>
-                  <span className="text-white/60 text-sm">
-                    {fileList.filter((f) => !f.isLocked).length} of {fileList.length}{' '}
-                    preview
-                  </span>
-                </div>
-
-                {/* Scrollable File List */}
-                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                  {fileList.map((file) => {
-                    const FileIcon = getFileIcon(file.type);
-                    return (
-                      <div
-                        key={file.id}
-                        className={`p-4 rounded-xl border transition-all duration-300 ${
-                          file.isLocked
-                            ? 'bg-white/[0.02] border-white/5 opacity-60'
-                            : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-cyan-400/30'
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* Icon */}
-                          <div
-                            className={`w-12 h-12 rounded-xl ${
-                              file.isLocked ? 'bg-white/5' : 'bg-cyan-500/20'
-                            } border border-white/10 flex items-center justify-center flex-shrink-0`}
-                          >
-                            {file.isLocked ? (
-                              <Lock size={20} className="text-white/40" />
-                            ) : (
-                              <FileIcon size={20} className="text-cyan-400" />
-                            )}
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <h3
-                              className={`font-semibold mb-1 truncate ${
-                                file.isLocked
-                                  ? 'text-white/40 blur-[2px]'
-                                  : 'text-white'
-                              }`}
-                            >
-                              {file.title}
-                            </h3>
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={`px-2 py-1 rounded-md text-xs font-semibold border ${getTypeBadgeColor(
-                                  file.type
-                                )}`}
-                              >
-                                {file.type.toUpperCase()}
-                              </span>
-                              <span className="text-white/50 text-sm">{file.size}</span>
-                            </div>
-                          </div>
-
-                          {/* Lock/Download Icon */}
-                          {file.isLocked ? (
-                            <Lock size={20} className="text-white/30 flex-shrink-0" />
-                          ) : (
-                            <Download
-                              size={20}
-                              className="text-cyan-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Unlock Message */}
-                <div className="mt-6 p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-400/20">
-                  <p className="text-white/70 text-sm text-center">
-                    🔓 <span className="font-semibold text-white">Purchase</span> this
-                    pack to unlock all {fileList.length} files
+                  <p className="text-white/70 leading-relaxed text-sm">
+                     {pack.description}
                   </p>
-                </div>
-              </GlassCard>
+               </GlassCard>
             </div>
 
-            {/* Right Side - Summary Card (1/3 width) */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-8 space-y-6">
-                {/* Summary Card */}
-                <GlassCard className="p-6 space-y-6">
-                  {/* Title */}
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{pack.title}</h3>
-                    <p className="text-white/60 leading-relaxed">{pack.description}</p>
+            {/* Sidebar Contents */}
+            <div className="lg:col-span-4 space-y-6">
+               <GlassCard className="p-0 overflow-hidden flex flex-col h-[550px]">
+                  <div className="p-5 border-b border-white/10 bg-white/[0.02]">
+                     <h3 className="text-white font-bold flex items-center gap-2">
+                        <Files size={18} className="text-cyan-400" /> Pack Contents
+                     </h3>
+                     <p className="text-white/40 text-[10px] uppercase font-bold tracking-widest mt-1">
+                        {contents.length} Items Total
+                     </p>
                   </div>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar">
+                     <div className="divide-y divide-white/[0.03]">
+                        {contents.map((item) => {
+                          const isLocked = !isEnrolled;
+                          const isActive = activeContent?.id === item.id;
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Files size={18} className="text-cyan-400" />
-                        <span className="text-white/60 text-sm">Files</span>
-                      </div>
-                      <p className="text-white font-bold text-xl">{pack.fileCount}</p>
+                          return (
+                            <button
+                              key={item.id}
+                              disabled={isLocked}
+                              onClick={() => setActiveContent(item)}
+                              className={`w-full p-4 flex items-center gap-4 text-left transition-all ${
+                                isActive ? 'bg-cyan-500/10 border-r-2 border-cyan-400' : 
+                                isLocked ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:bg-white/5'
+                              }`}
+                            >
+                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                                 isActive ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/5 text-white/40'
+                               }`}>
+                                  {isLocked ? <Lock size={18} /> : 
+                                   item.file_type === 'pdf' ? <FileText size={18} /> : 
+                                   item.file_type === 'video' || (item.file_type === 'link' && isYouTube(item.file_url)) ? <Video size={18} /> : 
+                                   <LinkIcon size={18} />}
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-bold truncate ${isActive ? 'text-white' : 'text-white/60'}`}>
+                                    {item.file_name}
+                                  </p>
+                                   <div className="flex items-center gap-2 mt-0.5">
+                                     <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">
+                                        {item.file_type}
+                                     </span>
+                                  </div>
+                               </div>
+                               {!isLocked && isActive && <ChevronRight size={16} className="text-cyan-400" />}
+                            </button>
+                          );
+                        })}
+                     </div>
+                  </div>
+                  {!isEnrolled && (
+                    <div className="p-4 bg-yellow-500/10 border-t border-yellow-500/20">
+                       <p className="text-[10px] text-yellow-400/80 font-bold flex items-center gap-2">
+                          <Lock size={12} /> REST OF THE CONTENT IS LOCKED
+                       </p>
                     </div>
+                  )}
+               </GlassCard>
 
-                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Download size={18} className="text-cyan-400" />
-                        <span className="text-white/60 text-sm">Downloads</span>
-                      </div>
-                      <p className="text-white font-bold text-xl">{pack.downloads}</p>
-                    </div>
-                  </div>
-
-                  {/* Updated */}
-                  <div className="flex items-center gap-2 text-white/60">
-                    <Clock size={18} className="text-cyan-400" />
-                    <span className="text-sm">Updated {pack.updatedAt}</span>
-                  </div>
-
-                  {/* Popularity Progress */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-white/60 flex items-center gap-1.5">
-                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                        Popularity
-                      </span>
-                      <span className="text-sm text-white/60">
-                        {pack.popularityScore}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full"
-                        style={{ width: `${pack.popularityScore}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t border-white/10" />
-
-                  {/* Price */}
-                  <div>
-                    <p className="text-white/60 text-sm mb-2">One-time purchase</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-green-400 text-4xl font-bold">
-                        LKR {pack.price.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="space-y-3">
-                    {/* Purchase Button */}
-                    <button
-                      onClick={handlePurchase}
-                      className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold hover:shadow-[0_0_32px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCart size={20} />
-                      Purchase Now
-                    </button>
-
-                    {/* Preview More Button */}
-                    <button className="w-full px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/50 text-white font-semibold transition-all duration-300 flex items-center justify-center gap-2">
-                      <Eye size={20} />
-                      Preview More
-                    </button>
-                  </div>
-                </GlassCard>
-
-                {/* What You Get Card */}
-                <GlassCard className="p-6">
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <CheckCircle2 size={20} className="text-green-400" />
-                    What You Get
+               <GlassCard className="p-6 bg-gradient-to-br from-indigo-500/10 to-transparent border-indigo-500/20">
+                  <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                    <CheckCircle2 size={20} className="text-green-400" /> Core Features
                   </h3>
-
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
-                      <span className="text-white/80">Complete Study Notes</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
-                      <span className="text-white/80">Past Paper Collection</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
-                      <span className="text-white/80">Video Tutorials</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
-                      <span className="text-white/80">Recorded Lessons</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
-                      <span className="text-white/80">Practice Problems</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={18} className="text-green-400 flex-shrink-0" />
-                      <span className="text-white/80">Lifetime Access</span>
-                    </div>
+                     {[
+                       'Expert Recorded Lessons',
+                       'Downloadable PDF Notes',
+                       'Quick Practical Guides',
+                       'Unlimited Lifetime Access',
+                       'Mobile & Tablet Ready'
+                     ].map((feat) => (
+                       <div key={feat} className="flex items-center gap-3">
+                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                         <span className="text-white/70 text-xs">{feat}</span>
+                       </div>
+                     ))}
                   </div>
-                </GlassCard>
-              </div>
+               </GlassCard>
             </div>
           </div>
         </div>
       </DashboardLayout>
 
-      {/* AI Chatbot */}
       <AIChat />
 
-      {/* Custom Scrollbar Styles */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.02);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(59, 130, 246, 0.3);
-          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(59, 130, 246, 0.5);
+          background: rgba(34, 211, 238, 0.2);
         }
       `}</style>
     </>

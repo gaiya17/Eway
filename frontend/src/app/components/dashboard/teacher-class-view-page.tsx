@@ -1,33 +1,145 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import apiClient from '@/api/api-client';
 import {
-  ArrowLeft,
-  Plus,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  Video,
-  Trash2,
-  BookOpen,
-  Calendar,
-  Radio,
-  Download,
-  Upload,
-  Eye,
-  PlusCircle,
-  X,
-  Play,
-  MonitorPlay,
-  ExternalLink,
-  Loader2,
-  Users,
-  ClipboardList,
-  DollarSign,
-  AlertCircle,
-  Award
+  ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Video,
+  Trash2, BookOpen, Calendar, Radio, Download, Upload, Eye,
+  PlusCircle, X, Play, MonitorPlay, ExternalLink, Loader2,
+  Users, ClipboardList, DollarSign, AlertCircle, Award, Copy, Zap, Link, Clock
 } from 'lucide-react';
+import { JitsiEmbed } from './jitsi-embed';
+
+// ─── URL Helper ─────────────────────────────────────────────────────────────
+const ensureAbsoluteUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `https://${url}`;
+};
+
+// ─── Countdown Hook ────────────────────────────────────────────────────────
+function useCountdown(targetDate: string | null) {
+  const [timeLeft, setTimeLeft] = useState('');
+  const [isLive, setIsLive] = useState(false);
+  const [isPast, setIsPast] = useState(false);
+
+  useEffect(() => {
+    if (!targetDate) return;
+    const update = () => {
+      const diff = new Date(targetDate).getTime() - Date.now();
+      const end = new Date(targetDate).getTime() + 3 * 60 * 60 * 1000;
+      if (Date.now() >= new Date(targetDate).getTime() && Date.now() <= end) {
+        setIsLive(true); setIsPast(false); setTimeLeft('LIVE NOW');
+      } else if (diff < 0) {
+        setIsLive(false); setIsPast(true); setTimeLeft('Session Ended');
+      } else {
+        setIsLive(false); setIsPast(false);
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setTimeLeft(h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`);
+      }
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [targetDate]);
+
+  return { timeLeft, isLive, isPast };
+}
+
+// ─── Live Session Card (Teacher) ────────────────────────────────────────────
+function TeacherLiveCard({ material, onDelete }: { material: any; onDelete: () => void }) {
+  const { timeLeft, isLive, isPast } = useCountdown(material.scheduled_at || null);
+  const [showEmbed, setShowEmbed] = useState(false);
+  const isJitsi = material.url?.includes('meet.jit.si');
+
+  return (
+    <div className={`rounded-2xl border overflow-hidden transition-all ${
+      isLive ? 'border-green-500/50 bg-green-500/5 shadow-[0_0_30px_rgba(34,197,94,0.15)]'
+      : isPast ? 'border-white/5 bg-white/3'
+      : 'border-green-500/20 bg-white/3'
+    }`}>
+      <div className="p-4 flex items-center gap-4">
+        {/* Icon */}
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+          isLive ? 'bg-green-500/20' : 'bg-white/5'
+        }`}>
+          <Radio size={22} className={isLive ? 'text-green-400 animate-pulse' : 'text-green-400/60'} />
+        </div>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm truncate">{material.title}</p>
+          {material.scheduled_at && (
+            <p className="text-white/40 text-xs mt-0.5">
+              🗓 {new Date(material.scheduled_at).toLocaleString()}
+            </p>
+          )}
+        </div>
+        {/* Status + Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {material.scheduled_at && (
+            <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
+              isLive ? 'bg-green-500 text-white animate-pulse'
+              : isPast ? 'bg-white/10 text-white/40'
+              : 'bg-green-500/10 text-green-400 border border-green-500/20'
+            }`}>
+              <Clock size={10} />
+              {timeLeft}
+            </div>
+          )}
+          {!isPast && (
+            <button
+              onClick={() => setShowEmbed(!showEmbed)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 text-xs font-bold transition-colors"
+            >
+              <MonitorPlay size={14} /> {showEmbed ? 'Hide' : isLive ? 'Start Class' : 'Preview'}
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="p-1.5 text-white/30 hover:text-red-400 transition-colors rounded-lg hover:bg-white/5"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+    {/* Inline viewer */}
+      {showEmbed && (
+        <div className="border-t border-white/10 px-4 pb-4">
+          {isJitsi ? (
+            <div className="mt-3 shadow-[0_0_40px_rgba(34,197,94,0.1)]">
+              <JitsiEmbed
+                roomUrl={material.url}
+                title={material.title}
+                userName="Teacher (Moderator)"
+                role="teacher"
+              />
+            </div>
+          ) : (
+            <div className="mt-3 p-5 rounded-xl bg-green-500/5 border border-green-500/20 flex flex-col items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center">
+                <MonitorPlay size={28} className="text-green-400" />
+              </div>
+              <div className="text-center">
+                <p className="text-white font-bold">{material.title}</p>
+                <p className="text-white/40 text-sm mt-1">
+                  {material.url?.includes('meet.google.com') ? 'Google Meet' : material.url?.includes('zoom.us') ? 'Zoom' : 'External Platform'} · opens in new tab
+                </p>
+              </div>
+              <a href={ensureAbsoluteUrl(material.url)} target="_blank" rel="noreferrer"
+                className="px-8 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold hover:shadow-[0_0_24px_rgba(34,197,94,0.5)] transition-all flex items-center gap-2"
+              >
+                <Radio size={18} className="animate-pulse" /> Start Live Class
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const OL_SUBJECTS = [
   "Mathematics", "English", "Science", "Sinhala", "History", "Religion",
@@ -251,6 +363,17 @@ export function TeacherClassViewPage({
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  // Jitsi vs External toggle for live sessions
+  const [liveMode, setLiveMode] = useState<'jitsi' | 'external'>('jitsi');
+
+  // Generate a unique Jitsi room URL based on classId + title slug + date
+  const generateJitsiUrl = useCallback(() => {
+    const slug = matTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'lesson';
+    const dateStr = matScheduledAt ? new Date(matScheduledAt).toISOString().slice(0, 10).replace(/-/g, '') : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    // Generate unique room URL
+    return `https://meet.jit.si/eway-${classId.slice(0, 8)}-${slug}-${dateStr}`;
+  }, [matTitle, matScheduledAt, classId]);
+
 
   // Edit Class Modal
   const [showEditModal, setShowEditModal] = useState(false);
@@ -500,7 +623,7 @@ const fetchClassDetails = async () => {
         title: matTitle,
         type: matType,
         url: finalUrl,
-        scheduled_at: matType === 'live' ? matScheduledAt : null
+        scheduled_at: matType === 'live' && matScheduledAt ? new Date(matScheduledAt).toISOString() : null
       });
       setMatTitle('');
       setMatUrl('');
@@ -761,7 +884,7 @@ const fetchClassDetails = async () => {
                                 <VideoPlayer url={material.url} title={material.title} />
                               )}
                               {material.type === 'live' && (
-                                <LiveClassViewer url={material.url} title={material.title} />
+                                <TeacherLiveCard material={material} onDelete={() => handleDeleteMaterial(material.id)} />
                               )}
                             </div>
                           )}
@@ -1212,29 +1335,94 @@ const fetchClassDetails = async () => {
                 </div>
               )}
 
-              {/* Live Class URL & Scheduled At */}
+              {/* Live Class — Jitsi or External */}
               {matType === 'live' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-white/60 text-sm font-medium mb-1 block">Live Class Link</label>
-                    <input
-                      value={matUrl}
-                      onChange={(e) => setMatUrl(e.target.value)}
-                      placeholder="https://meet.google.com/xxx-xxxx-xxx or Zoom link..."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-green-500/60 transition-all text-sm"
-                    />
+                <div className="space-y-5">
+                  {/* Mode Toggle */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setLiveMode('jitsi'); setMatUrl(''); }}
+                      className={`p-4 rounded-xl border text-left transition-all ${
+                        liveMode === 'jitsi'
+                          ? 'border-green-500/60 bg-green-500/10'
+                          : 'border-white/10 bg-white/3 hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Zap size={16} className="text-green-400" />
+                        <span className="text-white font-bold text-sm">Built-in (Jitsi)</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-bold">RECOMMENDED</span>
+                      </div>
+                      <p className="text-white/40 text-xs">Auto-generates a secure room inside the LMS. Students join without leaving.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLiveMode('external'); setMatUrl(''); }}
+                      className={`p-4 rounded-xl border text-left transition-all ${
+                        liveMode === 'external'
+                          ? 'border-blue-500/60 bg-blue-500/10'
+                          : 'border-white/10 bg-white/3 hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Link size={16} className="text-blue-400" />
+                        <span className="text-white font-bold text-sm">External Link</span>
+                      </div>
+                      <p className="text-white/40 text-xs">Paste a Google Meet, Zoom, or any other link.</p>
+                    </button>
                   </div>
+
+                  {/* Jitsi mode */}
+                  {liveMode === 'jitsi' && (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setMatUrl(generateJitsiUrl())}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all flex items-center justify-center gap-2"
+                      >
+                        <Zap size={18} /> Generate Jitsi Room Link
+                      </button>
+                      {matUrl && (
+                        <div className="flex items-center gap-2 p-3 rounded-xl bg-black/30 border border-green-500/20">
+                          <p className="text-green-400 text-xs font-mono flex-1 truncate">{matUrl}</p>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(matUrl)}
+                            className="p-1.5 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors shrink-0"
+                            title="Copy link"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* External mode */}
+                  {liveMode === 'external' && (
+                    <div>
+                      <label className="text-white/60 text-sm font-medium mb-1 block">Meeting Link</label>
+                      <input
+                        value={matUrl}
+                        onChange={(e) => setMatUrl(e.target.value)}
+                        placeholder="https://meet.google.com/xxx or https://zoom.us/j/..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/60 transition-all text-sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Scheduled time */}
                   <div>
-                    <label className="text-white/60 text-sm font-medium mb-1 block">Scheduled Date & Time</label>
+                    <label className="text-white/60 text-sm font-medium mb-1 block">📅 Scheduled Date & Time</label>
                     <input
                       type="datetime-local"
                       value={matScheduledAt}
                       onChange={(e) => setMatScheduledAt(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-green-500/60 transition-all text-sm [color-scheme:dark]"
                     />
-                    <p className="text-white/30 text-xs mt-2">When this live session is set to happen. This will show up in the student's upcoming classes.</p>
+                    <p className="text-white/30 text-xs mt-1.5">Students will see a countdown timer leading up to this time.</p>
                   </div>
-                  <p className="text-white/30 text-xs">Google Meet and Zoom links will open in the browser. Jitsi / BigBlueButton links will be embedded directly in the LMS.</p>
                 </div>
               )}
 

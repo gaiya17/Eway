@@ -591,6 +591,78 @@ router.get('/:id/student-view', verifyToken, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/classes/:id/live-status
+ * @desc    Check if a class has an active or upcoming live session
+ * @access  Private
+ */
+router.get('/:id/live-status', verifyToken, async (req, res) => {
+  const { id: classId } = req.params;
+  try {
+    const { data: materials, error } = await supabaseAdmin
+      .from('class_materials')
+      .select('id, title, url, type, scheduled_at')
+      .eq('type', 'live')
+      .not('scheduled_at', 'is', null)
+      .order('scheduled_at', { ascending: true });
+
+    if (error) throw error;
+
+    // Find materials belonging to this class (via section join)
+    const { data: sections } = await supabaseAdmin
+      .from('class_sections')
+      .select('id')
+      .eq('class_id', classId);
+
+    const sectionIds = new Set((sections || []).map(s => s.id));
+
+    // Re-fetch materials filtered by section_id
+    const { data: classMaterials } = await supabaseAdmin
+      .from('class_materials')
+      .select('id, title, url, type, scheduled_at, section_id')
+      .in('section_id', sectionIds.size > 0 ? [...sectionIds] : ['none'])
+      .eq('type', 'live')
+      .not('scheduled_at', 'is', null)
+      .order('scheduled_at', { ascending: true });
+
+    const now = new Date();
+    const WINDOW_MS = 3 * 60 * 60 * 1000; // 3 hour session window
+
+    let activeSession = null;
+    let nextSession = null;
+
+    for (const m of classMaterials || []) {
+      const sessionStart = new Date(m.scheduled_at);
+      const sessionEnd = new Date(sessionStart.getTime() + WINDOW_MS);
+      const minutesUntil = Math.round((sessionStart - now) / 60000);
+
+      if (now >= sessionStart && now <= sessionEnd) {
+        // Currently live
+        activeSession = { ...m, minutes_until: minutesUntil };
+        break;
+      } else if (sessionStart > now && !nextSession) {
+        // Upcoming
+        nextSession = { ...m, minutes_until: minutesUntil };
+      }
+    }
+
+    const session = activeSession || nextSession;
+
+    res.json({
+      is_live: !!activeSession,
+      session: session ? {
+        id: session.id,
+        title: session.title,
+        url: session.url,
+        scheduled_at: session.scheduled_at,
+        minutes_until: session.minutes_until
+      } : null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * @route   GET /api/classes/:id/analytics
  * @desc    Get enrollment analytics and roster for a class
  * @access  Private (Teacher Owner)

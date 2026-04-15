@@ -78,7 +78,11 @@ router.post('/register', async (req, res) => {
       userId = authData.user.id;
     }
 
-    // 3. Ensure profile exists (Upsert handles both new and existing auth users)
+    // 3. Generate a patterned Student ID (Max 12 chars: EW26-XXXXX) and ensure profile exists
+    const shortYear = new Date().getFullYear().toString().slice(-2);
+    const randomDigits = Math.floor(10000 + Math.random() * 90000); // 5 digits
+    const newStudentId = `EW${shortYear}-${randomDigits}`;
+
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .upsert({
@@ -86,7 +90,8 @@ router.post('/register', async (req, res) => {
         first_name: firstName,
         last_name: lastName,
         email: email,
-        role: 'student'
+        role: 'student',
+        student_id: newStudentId
       });
 
     if (profileError) throw profileError;

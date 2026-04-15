@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import { CustomDropdown } from '../custom-dropdown';
+import apiClient from '@/api/api-client';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   ArrowLeft,
   Plus,
@@ -30,6 +32,7 @@ interface StudentCard {
   class: string;
   status: 'active' | 'inactive';
   issuedDate: string;
+  expiryDate: string;
   photoUrl?: string;
 }
 
@@ -51,40 +54,40 @@ export function StudentCardsPage({
   const [selectedClass, setSelectedClass] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  const [studentCards, setStudentCards] = useState<StudentCard[]>([
-    {
-      id: '1',
-      studentName: 'Kasun Perera',
-      studentId: 'STU-1045',
-      class: 'A/L ICT 2026',
-      status: 'active',
-      issuedDate: 'March 10, 2026',
-    },
-    {
-      id: '2',
-      studentName: 'Nimali Fernando',
-      studentId: 'STU-1046',
-      class: 'A/L Mathematics 2026',
-      status: 'active',
-      issuedDate: 'March 9, 2026',
-    },
-    {
-      id: '3',
-      studentName: 'Ravindu Silva',
-      studentId: 'STU-1042',
-      class: 'O/L Science 2026',
-      status: 'active',
-      issuedDate: 'March 8, 2026',
-    },
-    {
-      id: '4',
-      studentName: 'Sanduni Perera',
-      studentId: 'STU-1047',
-      class: 'A/L ICT 2026',
-      status: 'inactive',
-      issuedDate: 'March 5, 2026',
-    },
-  ]);
+  const [studentCards, setStudentCards] = useState<StudentCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const response = await apiClient.get('/users/students');
+        const formattedData: StudentCard[] = response.data.map((student: any) => ({
+          id: student.id,
+          studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+          studentId: student.student_id ? student.student_id : 'ID-PENDING',
+          class: student.className || 'Student',
+          status: 'active',
+          issuedDate: new Date(student.created_at).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          expiryDate: new Date(new Date(student.created_at).setFullYear(new Date(student.created_at).getFullYear() + 2)).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+          photoUrl: student.profile_photo,
+        }));
+        setStudentCards(formattedData);
+      } catch (error) {
+        console.error('Failed to load students', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStudents();
+  }, []);
 
   const handleGenerateCard = () => {
     if (!studentName || !studentId || !selectedClass) {
@@ -99,6 +102,11 @@ export function StudentCardsPage({
       class: selectedClass,
       status: 'active',
       issuedDate: new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toLocaleDateString('en-US', {
         month: 'long',
         day: 'numeric',
         year: 'numeric',
@@ -450,7 +458,13 @@ export function StudentCardsPage({
                   {/* Student Photo */}
                   <div className="flex justify-center mb-6">
                     <div className="w-32 h-32 rounded-2xl bg-white/10 border-4 border-white/30 flex items-center justify-center overflow-hidden">
-                      {photoFile ? (
+                      {selectedCard.photoUrl ? (
+                        <img
+                          src={selectedCard.photoUrl}
+                          alt="Student"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : photoFile ? (
                         <img
                           src={URL.createObjectURL(photoFile)}
                           alt="Student"
@@ -480,9 +494,9 @@ export function StudentCardsPage({
                       </div>
 
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                        <p className="text-white/70 text-xs mb-1">Class</p>
+                        <p className="text-white/70 text-xs mb-1">Expires</p>
                         <p className="text-white font-semibold text-sm">
-                          {selectedCard.class}
+                          {selectedCard.expiryDate}
                         </p>
                       </div>
                     </div>
@@ -491,9 +505,7 @@ export function StudentCardsPage({
                   {/* QR Code */}
                   <div className="flex justify-center">
                     <div className="bg-white rounded-xl p-4 border-4 border-white/30">
-                      <div className="w-32 h-32 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center">
-                        <QrCode className="text-white" size={80} />
-                      </div>
+                        <QRCodeSVG value={selectedCard.studentId} size={110} level="H" />
                       <p className="text-center text-xs text-gray-700 mt-2 font-semibold">
                         Scan for Attendance
                       </p>
@@ -598,9 +610,9 @@ export function StudentCardsPage({
                       </div>
 
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                        <p className="text-white/70 text-xs mb-1">Class</p>
+                        <p className="text-white/70 text-xs mb-1">Expires</p>
                         <p className="text-white font-semibold text-sm">
-                          {generatedCardData.class}
+                          {generatedCardData.expiryDate}
                         </p>
                       </div>
                     </div>
@@ -609,9 +621,7 @@ export function StudentCardsPage({
                   {/* QR Code */}
                   <div className="flex justify-center">
                     <div className="bg-white rounded-xl p-4 border-4 border-white/30">
-                      <div className="w-32 h-32 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg flex items-center justify-center">
-                        <QrCode className="text-white" size={80} />
-                      </div>
+                        <QRCodeSVG value={generatedCardData.studentId} size={110} level="H" />
                       <p className="text-center text-xs text-gray-700 mt-2 font-semibold">
                         Scan for Attendance
                       </p>

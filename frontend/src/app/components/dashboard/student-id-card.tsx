@@ -4,6 +4,7 @@ import { GlassCard } from '../glass-card';
 import { AIChat } from './ai-chat';
 import apiClient from '@/api/api-client';
 import { QRCodeSVG } from 'qrcode.react';
+import ewayLogo from '@/assets/5839cd6ca5cc93c08af5158653805fc6c7e77232.png';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -14,6 +15,8 @@ import {
   Download,
   Shield,
   CheckCircle,
+  GraduationCap,
+  Printer,
 } from 'lucide-react';
 
 interface StudentIdCardProps {
@@ -41,7 +44,7 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
         setProfile({
           firstName: data.first_name || 'Student',
           lastName: data.last_name || '',
-          studentId: data.id || 'N/A',
+          studentId: data.student_id || 'PENDING',
           email: data.email || '',
           phone: data.phone || '',
           profilePhoto: data.profile_photo || '',
@@ -59,21 +62,17 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
   const studentData = {
     firstName: profile?.firstName || 'Student',
     lastName: profile?.lastName || '',
-    studentId: profile?.studentId ? profile.studentId.toString().slice(0, 10).toUpperCase() : 'EW-ID-PENDING',
+    studentId: profile?.studentId || 'EW-ID-PENDING',
     email: profile?.email || 'N/A',
     mobile: profile?.phone || 'Not set',
     grade: 'LMS Student',
     batch: profile ? new Date(profile.joinedDate).getFullYear().toString() : '2026',
-    issueDate: profile ? new Date(profile.joinedDate).toLocaleDateString() : 'N/A',
-    expiryDate: 'Dec 31, 2026',
+    issueDate: profile ? new Date(profile.joinedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+    expiryDate: profile ? new Date(new Date(profile.joinedDate).setFullYear(new Date(profile.joinedDate).getFullYear() + 2)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
     status: 'Active',
   };
 
-  const qrCodeData = JSON.stringify({
-    id: studentData.studentId,
-    name: `${studentData.firstName} ${studentData.lastName}`,
-    verify: 'https://eway.lk/verify/' + studentData.studentId,
-  });
+  const qrCodeData = studentData.studentId;
 
   const handleDownloadPDF = () => {
     console.log('Downloading ID card as PDF...');
@@ -120,218 +119,112 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
             <p className="text-white/60">Your official digital identity card</p>
           </div>
 
-          {/* Main ID Card - Centered */}
-          <div className="flex justify-center">
-            <div className="w-full max-w-4xl">
-              <GlassCard className="p-0 overflow-hidden group hover:shadow-[0_0_48px_rgba(59,130,246,0.4)] transition-all duration-500 hover:scale-[1.02] transform">
-                {/* Top Header Strip */}
-                <div className="relative bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 p-6 overflow-hidden">
-                  {/* Animated gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                  {/* Holographic shimmer effect */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="relative flex items-center justify-between">
-                    {/* Left - Institute Info */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-xl flex items-center justify-center">
-                        <BadgeCheck size={32} className="text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-white text-2xl font-bold">EWAY Institute</h2>
-                        <p className="text-white/90 text-sm">Official Student ID Card</p>
-                      </div>
-                    </div>
-
-                    {/* Right - Verified Badge */}
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 backdrop-blur-xl border border-green-400/50 shadow-[0_0_24px_rgba(34,197,94,0.4)]">
-                      <CheckCircle size={18} className="text-green-400" />
-                      <span className="text-green-300 font-semibold text-sm">Verified</span>
-                    </div>
+          {/* Main ID Card - Horizontal Design */}
+          <div className="flex justify-center overflow-x-auto pb-4 custom-scrollbar">
+            <div className="w-full max-w-2xl min-w-[600px] sm:min-w-0 transition-all duration-500">
+              <div className="overflow-hidden border-0 shadow-2xl relative group pb-0 aspect-[1.58/1] bg-white rounded-2xl ring-1 ring-black/5">
+                {/* Header Section */}
+                <div className="bg-gradient-to-r from-[#0a0f2c] via-[#1a237e] to-[#0a0f2c] p-4 flex items-center gap-4 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10" />
+                  <div className="z-10 bg-black p-1.5 rounded-full shadow-lg overflow-hidden flex items-center justify-center w-14 h-14">
+                    <img src={ewayLogo} alt="Logo" className="w-10 h-10 object-contain rounded-full" />
                   </div>
-                </div>
-
-                {/* Card Body */}
-                <div className="p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* LEFT COLUMN - Photo + QR */}
-                    <div className="flex flex-col items-center gap-6">
-                      {/* Profile Image */}
-                      <div className="relative">
-                        <div className="w-48 h-48 rounded-2xl bg-gradient-to-br from-blue-500/30 to-cyan-400/30 backdrop-blur-xl border-4 border-blue-400/50 shadow-[0_0_32px_rgba(59,130,246,0.4)] flex items-center justify-center overflow-hidden">
-                          {profile?.profilePhoto ? (
-                            <img src={profile.profilePhoto} alt="Student" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-8xl">👨‍🎓</span>
-                          )}
-                        </div>
-                        {/* Decorative corner badge */}
-                        <div className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg">
-                          <Shield size={20} className="text-white" />
-                        </div>
-                      </div>
-
-                      {/* Student ID Badge */}
-                      <div className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500/20 to-cyan-400/20 border border-cyan-400/30 backdrop-blur-xl">
-                        <p className="text-cyan-300 font-bold text-lg text-center">
-                          {studentData.studentId}
-                        </p>
-                      </div>
-
-                      {/* QR Code */}
-                      <GlassCard className="p-4 hover:scale-105 transition-transform duration-300 cursor-pointer group/qr">
-                        <div className="bg-white rounded-xl p-3 relative overflow-hidden">
-                          <QRCodeSVG value={qrCodeData} size={140} level="H" />
-                          {/* Scan line animation */}
-                          <div className="absolute inset-x-0 h-0.5 bg-cyan-400 opacity-0 group-hover/qr:opacity-100 group-hover/qr:animate-pulse" style={{ top: '50%' }} />
-                        </div>
-                        <p className="text-white/70 text-xs text-center mt-3 group-hover/qr:text-cyan-400 transition-colors">
-                          Scan for verification
-                        </p>
-                      </GlassCard>
-                    </div>
-
-                    {/* RIGHT COLUMN - Student Information */}
-                    <div className="md:col-span-2 space-y-6">
-                      {/* Name Section */}
-                      <div>
-                        <h3 className="text-white/60 text-sm mb-4 uppercase tracking-wider">
-                          Student Information
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          {/* First Name */}
-                          <div>
-                            <label className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                              <User size={14} />
-                              First Name
-                            </label>
-                            <p className="text-white font-bold text-xl">
-                              {studentData.firstName}
-                            </p>
-                          </div>
-
-                          {/* Last Name */}
-                          <div>
-                            <label className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                              <User size={14} />
-                              Last Name
-                            </label>
-                            <p className="text-white font-bold text-xl">{studentData.lastName}</p>
-                          </div>
-
-                          {/* Mobile Number */}
-                          <div>
-                            <label className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                              <Phone size={14} />
-                              Mobile Number
-                            </label>
-                            <p className="text-white font-semibold text-lg">{studentData.mobile}</p>
-                          </div>
-
-                          {/* Email */}
-                          <div>
-                            <label className="flex items-center gap-2 text-white/60 text-sm mb-2">
-                              <Mail size={14} />
-                              Email Address
-                            </label>
-                            <p className="text-white font-semibold text-lg break-all">
-                              {studentData.email}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Grade Info */}
-                      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                        <p className="text-white/70 text-sm mb-1">Current Enrollment</p>
-                        <p className="text-white font-bold text-lg">{studentData.grade}</p>
-                        <p className="text-cyan-400 text-sm">Batch {studentData.batch}</p>
-                      </div>
-
-                      {/* Additional Info Strip */}
-                      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
-                        {/* Issue Date */}
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 mb-2">
-                            <Calendar size={16} className="text-cyan-400" />
-                            <p className="text-white/60 text-xs uppercase">Issued</p>
-                          </div>
-                          <p className="text-white font-semibold text-sm">
-                            {studentData.issueDate}
-                          </p>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="border-l border-white/10" />
-
-                        {/* Expiry Date */}
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 mb-2">
-                            <Calendar size={16} className="text-cyan-400" />
-                            <p className="text-white/60 text-xs uppercase">Expires</p>
-                          </div>
-                          <p className="text-white font-semibold text-sm">
-                            {studentData.expiryDate}
-                          </p>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="border-l border-white/10" />
-
-                        {/* Status */}
-                        <div className="text-center">
-                          <div className="flex items-center justify-center gap-2 mb-2">
-                            <div className="relative">
-                              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                              <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-400 animate-ping opacity-75" />
-                            </div>
-                            <p className="text-white/60 text-xs uppercase">Status</p>
-                          </div>
-                          <p className="text-green-400 font-semibold text-sm">
-                            {studentData.status}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Footer - Security Strip */}
-                <div className="border-t border-white/10 bg-white/5 px-8 py-4">
-                  <div className="flex items-center justify-between">
+                  <div className="z-10 flex-1">
+                    <h2 className="text-white font-bold text-xl tracking-wider uppercase leading-none mb-1">EWAY INSTITUTE</h2>
                     <div className="flex items-center gap-2">
-                      <Shield size={16} className="text-cyan-400" />
-                      <p className="text-white/70 text-sm">
-                        This is an official digital ID card issued by EWAY Institute
+                      <div className="h-[1px] bg-white/30 flex-1" />
+                      <span className="text-white/70 text-[10px] uppercase tracking-[0.3em] font-light">Excellence in Education</span>
+                      <div className="h-[1px] bg-white/30 flex-1" />
+                    </div>
+                    <p className="text-white/90 text-xs font-medium uppercase tracking-widest mt-1">Student Identity Card</p>
+                  </div>
+                </div>
+
+                {/* Body Content */}
+                <div className="p-6 grid grid-cols-[140px_1fr_120px] gap-8 items-center h-[calc(100%-88px)] relative overflow-hidden">
+                  {/* Background Accents */}
+                  <div className="absolute top-1/4 -left-10 w-40 h-40 bg-blue-400/10 blur-[60px] rounded-full pointer-events-none" />
+                  <div className="absolute bottom-1/4 -right-10 w-32 h-32 bg-indigo-500/10 blur-[50px] rounded-full pointer-events-none" />
+                  
+                  {/* 1. Portrait Photo */}
+                  <div className="relative">
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 flex items-center justify-center">
+                      {profile?.profilePhoto ? (
+                        <img src={profile.profilePhoto} alt="Student" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="text-gray-300" size={60} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. Demographic Details */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-0.5">Full Name</label>
+                      <p className="text-gray-900 font-bold text-lg leading-none truncate overflow-ellipsis max-w-[300px]">
+                        {studentData.firstName} {studentData.lastName}
                       </p>
                     </div>
-                    <p className="text-white/50 text-xs">ID: {studentData.studentId}</p>
+                    
+                    <div>
+                      <label className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-0.5">Student No</label>
+                      <p className="text-gray-800 font-bold text-base">{studentData.studentId}</p>
+                    </div>
+
+                    <div className="flex gap-10">
+                      <div>
+                        <label className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-0.5">Valid Till</label>
+                        <p className="text-gray-800 font-bold text-sm tracking-tight">{studentData.expiryDate}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="text-[10px] text-gray-400 uppercase font-bold tracking-widest block mb-0.5">Status</label>
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 shadow-sm">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          ACTIVE
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Verification QR */}
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="p-2 border-2 border-gray-100 rounded-xl shadow-md bg-white ring-4 ring-gray-50/50">
+                      <QRCodeSVG value={qrCodeData} size={90} level="H" includeMargin={false} />
+                    </div>
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-[0.15em] text-center leading-tight">
+                      Digital Login QR
+                    </p>
                   </div>
                 </div>
-              </GlassCard>
 
-              {/* Download Button */}
-              <div className="flex justify-center mt-8">
-                <button
-                  onClick={handleDownloadPDF}
-                  className="flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_32px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:scale-105"
-                >
-                  <Download size={20} />
-                  <span>Download as PDF</span>
-                </button>
+                {/* Shimmer Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               </div>
 
-              {/* Info Notice */}
-              <div className="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-                <p className="text-white/70 text-sm text-center">
-                  💡 Keep your Student ID safe. You may be asked to show it for verification at any
-                  time.
-                </p>
+
+              {/* Action Buttons Below Card */}
+              <div className="mt-10 flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={handleDownloadPDF}
+                  className="flex-1 px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xl hover:shadow-blue-500/40 transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
+                >
+                  <Download size={20} />
+                  Download PDF
+                </button>
+                <button 
+                  onClick={() => window.print()}
+                  className="flex-1 px-6 py-4 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <Printer size={20} />
+                  Print Card
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      </DashboardLayout>
+
+          </div>
+        </DashboardLayout>
 
       {/* AI Chatbot */}
       <AIChat />

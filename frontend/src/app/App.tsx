@@ -50,8 +50,13 @@ import { AdminReportGeneration } from './components/dashboard/admin-report-gener
 import { AdminViewReport } from './components/dashboard/admin-view-report';
 import { AdminActivityLog } from './components/dashboard/admin-activity-log';
 import { AdminMyProfile } from './components/dashboard/admin-my-profile';
-import { AdminContentManagement } from './components/dashboard/admin-content-management';
 import { StudentClassViewPage } from './components/dashboard/student-class-view-page';
+import { TeacherStudyPacksPage } from './components/dashboard/teacher-study-packs-page';
+import { TeacherStudyPackDetailsPage } from './components/dashboard/teacher-study-pack-details-page';
+import { TeacherTutorialsPage } from './components/dashboard/teacher-tutorials-page';
+import { TeacherTutorialDetailsPage } from './components/dashboard/teacher-tutorial-details-page';
+import { StudentTutorialPlayerPage } from './components/dashboard/student-tutorial-player-page';
+import { AdminContentHubPage } from './components/dashboard/admin-content-hub-page';
 
 type PageType =
   | 'home'
@@ -93,14 +98,19 @@ type PageType =
   | 'dashboard-admin'
   | 'admin-users'
   | 'admin-chatbot'
-  | 'admin-content-management'
   | 'admin-payment-verification'
   | 'admin-notifications'
   | 'admin-report-generation'
   | 'admin-view-report'
   | 'admin-activity-log'
   | 'admin-my-profile'
-  | 'student-class-view';
+  | 'student-class-view'
+  | 'student-tutorial-player'
+  | 'teacher-study-packs'
+  | 'teacher-study-pack-details'
+  | 'teacher-tutorials'
+  | 'teacher-tutorial-details'
+  | 'admin-content-hub';
 
 /**
  * Main Application Component
@@ -127,9 +137,19 @@ function App() {
     // Smooth scrolling for the entire page
     document.documentElement.style.scrollBehavior = 'smooth';
 
-    // 1. Restore session from localStorage first
+    // 1. Restore session and transient data from localStorage
     const savedPage = localStorage.getItem('eway_current_page');
     const token = localStorage.getItem('eway_token');
+    const savedClassViewData = localStorage.getItem('eway_class_view_data');
+    const savedStudentData = localStorage.getItem('eway_student_view_data');
+    
+    // Restore transient data if available
+    if (savedClassViewData) {
+      try { setClassViewData(JSON.parse(savedClassViewData)); } catch (e) { console.error("Parse error savedClassViewData"); }
+    }
+    if (savedStudentData) {
+      try { setStudentClassViewData(JSON.parse(savedStudentData)); } catch (e) { console.error("Parse error savedStudentData"); }
+    }
     
     // Only restore if we have a token and a saved page that isn't login/register
     if (token && savedPage && !['login', 'register', 'home', 'reset-password'].includes(savedPage)) {
@@ -149,13 +169,26 @@ function App() {
     }
   }, []);
 
-  // Save current page to localStorage whenever it changes
+  // Save current page and transient data to localStorage
   useEffect(() => {
     // Don't save transient pages like login/register as "last visited" for refresh
     if (!['login', 'register', 'home', 'reset-password'].includes(currentPage)) {
       localStorage.setItem('eway_current_page', currentPage);
     }
-  }, [currentPage]);
+    
+    // Persist relevant transient data based on current context
+    if (classViewData) {
+      localStorage.setItem('eway_class_view_data', JSON.stringify(classViewData));
+    } else {
+      localStorage.removeItem('eway_class_view_data');
+    }
+
+    if (studentClassViewData) {
+      localStorage.setItem('eway_student_view_data', JSON.stringify(studentClassViewData));
+    } else {
+      localStorage.removeItem('eway_student_view_data');
+    }
+  }, [currentPage, classViewData, studentClassViewData]);
 
   const handleLoginSuccess = (role: 'student' | 'teacher' | 'staff' | 'admin') => {
     switch (role) {
@@ -247,8 +280,14 @@ function App() {
     } else if (page === 'student-class-view') {
       setStudentClassViewData(data);
       setCurrentPage('student-class-view');
+    } else if (page === 'student-tutorial-player') {
+      setStudentClassViewData(data); // Reusing state for tutorialId
+      setCurrentPage('student-tutorial-player');
     } else if (page === 'support') {
       setCurrentPage('support');
+    } else {
+      // Clear transient data when navigating to top-level lists
+      setStudentClassViewData(null);
     }
   };
 
@@ -267,9 +306,22 @@ function App() {
       setCurrentPage('teacher-notifications');
     } else if (page === 'teacher-chat') {
       setCurrentPage('teacher-chat');
+    } else if (page === 'teacher-study-packs') {
+      setCurrentPage('teacher-study-packs');
+    } else if (page === 'teacher-study-pack-details') {
+      setClassViewData(data); // Reusing classViewData state for packId or create a new one
+      setCurrentPage('teacher-study-pack-details');
     } else if (page === 'teacher-class-view') {
       setClassViewData(data);
       setCurrentPage('teacher-class-view');
+    } else if (page === 'teacher-tutorials') {
+      setCurrentPage('teacher-tutorials');
+    } else if (page === 'teacher-tutorial-details') {
+      setClassViewData(data);
+      setCurrentPage('teacher-tutorial-details');
+    } else {
+      // Clear transient data when navigating to top-level lists
+      setClassViewData(null);
     }
   };
 
@@ -292,28 +344,29 @@ function App() {
   };
 
   const handleAdminNavigation = (page: string) => {
-    if (page === 'dashboard') {
+    if (page === 'dashboard' || page === 'dashboard-admin') {
       setCurrentPage('dashboard-admin');
     } else if (page === 'user-management') {
       setCurrentPage('admin-users');
     } else if (page === 'chatbot-management') {
       setCurrentPage('admin-chatbot');
-    } else if (page === 'content-management') {
-      setCurrentPage('admin-content-management');
-    } else if (page === 'payment-verification') {
+    } else if (page === 'content-management' || page === 'admin-content-hub') {
+      setCurrentPage('admin-content-hub');
+    } else if (page === 'payment-verification' || page === 'verify-payments') {
       setCurrentPage('admin-payment-verification');
     } else if (page === 'notifications') {
       setCurrentPage('admin-notifications');
-    } else if (page === 'report-generation') {
+    } else if (page === 'report-generation' || page === 'reports') {
       setCurrentPage('admin-report-generation');
     } else if (page === 'view-report') {
       setCurrentPage('admin-view-report');
-    } else if (page === 'attendance-management') {
+    } else if (page === 'attendance-management' || page === 'attendance') {
       setCurrentPage('admin-activity-log');
-    } else if (page === 'my-profile') {
+    } else if (page === 'my-profile' || page === 'profile') {
       setCurrentPage('admin-my-profile');
-    } else if (page === 'profile') {
-      setCurrentPage('admin-my-profile');
+    } else {
+      // Fallback to dashboard for unknown admin pages
+      setCurrentPage('dashboard-admin');
     }
   };
 
@@ -438,6 +491,9 @@ function App() {
       {currentPage === 'dashboard-staff' && (
         <StaffDashboardHome onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
+      {currentPage === 'dashboard-admin' && (
+        <AdminDashboardHome onLogout={handleLogout} onNavigate={handleAdminNavigation} />
+      )}
       {currentPage === 'staff-profile' && (
         <StaffProfile onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
@@ -456,17 +512,14 @@ function App() {
       {currentPage === 'staff-notifications' && (
         <NotificationsPage userRole="staff" userName="Staff" onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
-      {currentPage === 'dashboard-admin' && (
-        <AdminDashboardHome onLogout={handleLogout} onNavigate={handleAdminNavigation} />
-      )}
       {currentPage === 'admin-users' && (
         <AdminUserManagement onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-chatbot' && (
         <AdminChatbotManagement onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
-      {currentPage === 'admin-content-management' && (
-        <AdminContentManagement onLogout={handleLogout} onNavigate={handleAdminNavigation} />
+      {currentPage === 'admin-content-hub' && (
+        <AdminContentHubPage onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-payment-verification' && (
         <AdminPaymentVerification onLogout={handleLogout} onNavigate={handleAdminNavigation} />
@@ -485,6 +538,33 @@ function App() {
       )}
       {currentPage === 'admin-my-profile' && (
         <AdminMyProfile onLogout={handleLogout} onNavigate={handleAdminNavigation} />
+      )}
+      {currentPage === 'teacher-study-packs' && (
+        <TeacherStudyPacksPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
+      )}
+      {currentPage === 'teacher-study-pack-details' && (
+        <TeacherStudyPackDetailsPage 
+          packId={classViewData?.id} 
+          onLogout={handleLogout} 
+          onNavigate={handleTeacherNavigation} 
+        />
+      )}
+      {currentPage === 'teacher-tutorials' && (
+        <TeacherTutorialsPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
+      )}
+      {currentPage === 'teacher-tutorial-details' && (
+        <TeacherTutorialDetailsPage 
+          tutorialId={classViewData?.id} 
+          onLogout={handleLogout} 
+          onNavigate={handleTeacherNavigation} 
+        />
+      )}
+      {currentPage === 'student-tutorial-player' && (
+        <StudentTutorialPlayerPage 
+          tutorialId={studentClassViewData?.id} 
+          onLogout={handleLogout} 
+          onNavigate={handleStudentNavigation} 
+        />
       )}
     </div>
   );
