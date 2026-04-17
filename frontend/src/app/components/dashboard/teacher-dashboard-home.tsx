@@ -114,7 +114,7 @@ interface TeacherDashboardHomeProps {
 export function TeacherDashboardHome({
   onLogout,
   onNavigate,
-}: TeacherDashboardHomeProps) {
+}: TeacherDashboardHomeProps): React.ReactElement {
   const [profile, setProfile] = React.useState<{
     firstName: string;
     lastName: string;
@@ -324,7 +324,7 @@ export function TeacherDashboardHome({
       <GlassCard className="p-6 mb-8">
         <div className="space-y-4">
           {upcomingSessions.length > 0 ? (
-            upcomingSessions.map((session, index) => (
+            upcomingSessions.map((session: any, index: number) => (
               <TeacherUpcomingClassRow key={index} session={session} onNavigate={onNavigate || (() => {})} />
             ))
           ) : (
@@ -363,7 +363,7 @@ export function TeacherDashboardHome({
           </div>
           <div className="space-y-4">
             {recentActivity.length > 0 ? (
-              recentActivity.map((activity, index) => {
+              recentActivity.map((activity: any, index: number) => {
                 const styles = getActivityStyles(activity.type);
                 const Icon = styles.icon;
                 return (

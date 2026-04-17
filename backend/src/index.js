@@ -30,6 +30,7 @@ const studyPacksRouter = require('./routes/study-packs');
 const freeTutorialsRouter = require('./routes/free-tutorials');
 const reportsRouter = require('./routes/reports');
 const adminRouter = require('./routes/admin');
+const chatbotRouter = require('./routes/chatbot');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -62,6 +63,7 @@ app.use('/api/study-packs', studyPacksRouter);
 app.use('/api/free-tutorials', freeTutorialsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/chatbot', chatbotRouter);
 
 /**
  * Root health check route

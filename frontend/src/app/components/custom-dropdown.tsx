@@ -6,7 +6,7 @@ interface CustomDropdownProps {
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
-  label?: string;
+  label?: React.ReactNode;
   className?: string;
 }
 
