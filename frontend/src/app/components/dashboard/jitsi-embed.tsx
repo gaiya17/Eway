@@ -1,20 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { JitsiMeeting } from '@jitsi/react-sdk';
-import { Maximize2, X, Minimize2 } from 'lucide-react';
+import { Maximize2, X, Minimize2, Loader2 } from 'lucide-react';
+import apiClient from '@/api/api-client';
+import { toast } from 'sonner';
 
 interface JitsiEmbedProps {
   roomUrl: string;
   title: string;
   userName: string;
   role: 'teacher' | 'student';
+  classId?: string;
   onClose?: () => void;
   className?: string;
 }
 
-export function JitsiEmbed({ roomUrl, title, userName, role, onClose, className = '' }: JitsiEmbedProps) {
+export function JitsiEmbed({ roomUrl, title, userName, role, classId, onClose, className = '' }: JitsiEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const isTeacher = role === 'teacher';
+  const attendanceMarked = useRef(false);
   
   // Synchronize state with native fullscreen changes (e.g. Esc key)
   useEffect(() => {
@@ -46,6 +50,18 @@ export function JitsiEmbed({ roomUrl, title, userName, role, onClose, className 
   const roomNameMatch = roomUrl.match(/meet\.jit\.si\/(.+)/);
   const roomName = roomNameMatch ? roomNameMatch[1] : `eway-${Date.now()}`;
   
+  const handleMarkAttendance = async () => {
+    if (isTeacher || !classId || attendanceMarked.current) return;
+    
+    try {
+      await apiClient.post('/attendance/auto', { class_id: classId });
+      attendanceMarked.current = true;
+      console.log('Online attendance marked automatically');
+    } catch (error) {
+      console.error('Failed to mark online attendance:', error);
+    }
+  };
+
   // Strict Role Config mappings
   const configOverwrite = {
     startWithAudioMuted: !isTeacher,
@@ -114,13 +130,13 @@ export function JitsiEmbed({ roomUrl, title, userName, role, onClose, className 
         {/* Custom Loading Overlay to mask the Jitsi "waiting for moderator" login prompt from students */}
         {!hasJoined && !isTeacher && (
           <div className="absolute inset-0 z-20 bg-[#1a1a1a] flex flex-col items-center justify-center p-6 text-center shadow-[inset_0_0_100px_rgba(0,0,0,0.5)]">
-            <div className="w-16 h-16 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin mb-6" />
+            <Loader2 className="w-16 h-16 text-green-500 animate-spin mb-6" />
             <h3 className="text-xl font-bold text-white mb-2 tracking-wide">Waiting for the Teacher...</h3>
             <p className="text-white/50 max-w-sm text-sm leading-relaxed mb-8">
               The teacher hasn't opened this live class yet. You will be automatically connected the moment they arrive.
             </p>
             <button 
-              onClick={() => setHasJoined(true)} 
+              onClick={() => { setHasJoined(true); handleMarkAttendance(); }} 
               className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 hover:text-white transition-all text-sm font-bold tracking-wide"
             >
               Enter Class Manually
@@ -145,6 +161,7 @@ export function JitsiEmbed({ roomUrl, title, userName, role, onClose, className 
              // We attach an event to listen for when the student actually penetrates the room (teacher opened it)
              externalApi.addListener('videoConferenceJoined', () => {
                 setHasJoined(true);
+                handleMarkAttendance();
              });
           }}
         />

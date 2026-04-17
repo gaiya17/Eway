@@ -57,6 +57,9 @@ import { TeacherTutorialsPage } from './components/dashboard/teacher-tutorials-p
 import { TeacherTutorialDetailsPage } from './components/dashboard/teacher-tutorial-details-page';
 import { StudentTutorialPlayerPage } from './components/dashboard/student-tutorial-player-page';
 import { AdminContentHubPage } from './components/dashboard/admin-content-hub-page';
+import { MyAttendancePage } from './components/dashboard/my-attendance-page';
+import { TeacherReportsPage } from './components/dashboard/teacher-reports-page';
+import { Toaster } from './components/ui/sonner';
 
 type PageType =
   | 'home'
@@ -110,7 +113,9 @@ type PageType =
   | 'teacher-study-pack-details'
   | 'teacher-tutorials'
   | 'teacher-tutorial-details'
-  | 'admin-content-hub';
+  | 'teacher-reports'
+  | 'admin-content-hub'
+  | 'student-attendance';
 
 /**
  * Main Application Component
@@ -285,6 +290,8 @@ function App() {
       setCurrentPage('student-tutorial-player');
     } else if (page === 'support') {
       setCurrentPage('support');
+    } else if (page === 'my-attendance' || page === 'attendance') {
+      setCurrentPage('student-attendance');
     } else {
       // Clear transient data when navigating to top-level lists
       setStudentClassViewData(null);
@@ -319,6 +326,8 @@ function App() {
     } else if (page === 'teacher-tutorial-details') {
       setClassViewData(data);
       setCurrentPage('teacher-tutorial-details');
+    } else if (page === 'teacher-reports') {
+      setCurrentPage('teacher-reports');
     } else {
       // Clear transient data when navigating to top-level lists
       setClassViewData(null);
@@ -566,6 +575,13 @@ function App() {
           onNavigate={handleStudentNavigation} 
         />
       )}
+      {currentPage === 'student-attendance' && (
+        <MyAttendancePage onLogout={handleLogout} onNavigate={handleStudentNavigation} />
+      )}
+      {currentPage === 'teacher-reports' && (
+        <TeacherReportsPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
+      )}
+      <Toaster />
     </div>
   );
 }

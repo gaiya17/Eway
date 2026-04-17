@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
+import apiClient from '@/api/api-client';
+import { toast } from 'sonner';
 import {
   Download,
   CheckCircle,
@@ -14,7 +16,11 @@ import {
   XCircle,
   RotateCcw,
   AlertCircle,
+  ChevronRight,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
+import { CustomDropdown } from '../custom-dropdown';
 
 interface TeacherAttendancePageProps {
   onLogout?: () => void;
@@ -24,400 +30,157 @@ interface TeacherAttendancePageProps {
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'unmarked';
 
 interface Student {
-  id: number;
+  id: string;
   name: string;
   studentId: string;
   status: AttendanceStatus;
   time?: string;
+  profilePhoto?: string;
 }
 
 export function TeacherAttendancePage({
   onLogout,
   onNavigate,
 }: TeacherAttendancePageProps) {
-  const [selectedClass, setSelectedClass] = useState('A/L ICT 2026');
-  const [selectedSubject, setSelectedSubject] = useState('ICT');
-  const [selectedDate, setSelectedDate] = useState('2026-03-20');
-  const [attendanceLoaded, setAttendanceLoaded] = useState(false);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const [students, setStudents] = useState<Student[]>([
-    {
-      id: 1,
-      name: 'Kavindu Perera',
-      studentId: 'STU101',
-      status: 'present',
-      time: '9:01 AM',
-    },
-    {
-      id: 2,
-      name: 'Kasun Perera',
-      studentId: 'STU102',
-      status: 'present',
-      time: '9:02 AM',
-    },
-    {
-      id: 3,
-      name: 'Nimal Silva',
-      studentId: 'STU103',
-      status: 'absent',
-    },
-    {
-      id: 4,
-      name: 'Nethmi Fernando',
-      studentId: 'STU104',
-      status: 'present',
-      time: '9:00 AM',
-    },
-    {
-      id: 5,
-      name: 'Ravindu Jayawardena',
-      studentId: 'STU105',
-      status: 'late',
-      time: '9:25 AM',
-    },
-    {
-      id: 6,
-      name: 'Sithija Wijesinghe',
-      studentId: 'STU106',
-      status: 'present',
-      time: '9:03 AM',
-    },
-    {
-      id: 7,
-      name: 'Tharindu Rajapaksha',
-      studentId: 'STU107',
-      status: 'absent',
-    },
-    {
-      id: 8,
-      name: 'Dilini Perera',
-      studentId: 'STU108',
-      status: 'present',
-      time: '9:05 AM',
-    },
-    {
-      id: 9,
-      name: 'Ishara Silva',
-      studentId: 'STU109',
-      status: 'late',
-      time: '9:30 AM',
-    },
-    {
-      id: 10,
-      name: 'Amaya Fernando',
-      studentId: 'STU110',
-      status: 'present',
-      time: '9:01 AM',
-    },
-    {
-      id: 11,
-      name: 'Sandun Wickramasinghe',
-      studentId: 'STU111',
-      status: 'absent',
-    },
-    {
-      id: 12,
-      name: 'Hansika Gamage',
-      studentId: 'STU112',
-      status: 'present',
-      time: '9:04 AM',
-    },
-    {
-      id: 13,
-      name: 'Chathura Bandara',
-      studentId: 'STU113',
-      status: 'present',
-      time: '9:02 AM',
-    },
-    {
-      id: 14,
-      name: 'Malsha Dissanayake',
-      studentId: 'STU114',
-      status: 'absent',
-    },
-    {
-      id: 15,
-      name: 'Kaveesha Perera',
-      studentId: 'STU115',
-      status: 'present',
-      time: '9:06 AM',
-    },
-    {
-      id: 16,
-      name: 'Dinuka Silva',
-      studentId: 'STU116',
-      status: 'late',
-      time: '9:28 AM',
-    },
-    {
-      id: 17,
-      name: 'Pathum Fernando',
-      studentId: 'STU117',
-      status: 'present',
-      time: '9:03 AM',
-    },
-    {
-      id: 18,
-      name: 'Nimasha Rajapaksha',
-      studentId: 'STU118',
-      status: 'absent',
-    },
-    {
-      id: 19,
-      name: 'Hasitha Jayawardena',
-      studentId: 'STU119',
-      status: 'present',
-      time: '9:01 AM',
-    },
-    {
-      id: 20,
-      name: 'Oshadi Wijesinghe',
-      studentId: 'STU120',
-      status: 'present',
-      time: '9:05 AM',
-    },
-    {
-      id: 21,
-      name: 'Lakshan Perera',
-      studentId: 'STU121',
-      status: 'absent',
-    },
-    {
-      id: 22,
-      name: 'Charitha Silva',
-      studentId: 'STU122',
-      status: 'present',
-      time: '9:02 AM',
-    },
-    {
-      id: 23,
-      name: 'Buddhika Fernando',
-      studentId: 'STU123',
-      status: 'present',
-      time: '9:04 AM',
-    },
-    {
-      id: 24,
-      name: 'Shalani Bandara',
-      studentId: 'STU124',
-      status: 'absent',
-    },
-    {
-      id: 25,
-      name: 'Thisara Gamage',
-      studentId: 'STU125',
-      status: 'present',
-      time: '9:03 AM',
-    },
-    {
-      id: 26,
-      name: 'Nipuni Dissanayake',
-      studentId: 'STU126',
-      status: 'present',
-      time: '9:01 AM',
-    },
-    {
-      id: 27,
-      name: 'Janaka Wickramasinghe',
-      studentId: 'STU127',
-      status: 'late',
-      time: '9:35 AM',
-    },
-    {
-      id: 28,
-      name: 'Thilini Perera',
-      studentId: 'STU128',
-      status: 'present',
-      time: '9:02 AM',
-    },
-    {
-      id: 29,
-      name: 'Harsha Silva',
-      studentId: 'STU129',
-      status: 'present',
-      time: '9:05 AM',
-    },
-    {
-      id: 30,
-      name: 'Madushani Fernando',
-      studentId: 'STU130',
-      status: 'present',
-      time: '9:03 AM',
-    },
-    {
-      id: 31,
-      name: 'Nuwan Rajapaksha',
-      studentId: 'STU131',
-      status: 'absent',
-    },
-    {
-      id: 32,
-      name: 'Sachini Jayawardena',
-      studentId: 'STU132',
-      status: 'present',
-      time: '9:04 AM',
-    },
-    {
-      id: 33,
-      name: 'Gayan Wijesinghe',
-      studentId: 'STU133',
-      status: 'present',
-      time: '9:01 AM',
-    },
-    {
-      id: 34,
-      name: 'Piyumi Perera',
-      studentId: 'STU134',
-      status: 'present',
-      time: '9:06 AM',
-    },
-    {
-      id: 35,
-      name: 'Chamara Silva',
-      studentId: 'STU135',
-      status: 'present',
-      time: '9:02 AM',
-    },
-    {
-      id: 36,
-      name: 'Samanthi Fernando',
-      studentId: 'STU136',
-      status: 'present',
-      time: '9:03 AM',
-    },
-    {
-      id: 37,
-      name: 'Asanka Bandara',
-      studentId: 'STU137',
-      status: 'present',
-      time: '9:04 AM',
-    },
-    {
-      id: 38,
-      name: 'Nadeesha Gamage',
-      studentId: 'STU138',
-      status: 'present',
-      time: '9:05 AM',
-    },
-    {
-      id: 39,
-      name: 'Ruwan Dissanayake',
-      studentId: 'STU139',
-      status: 'present',
-      time: '9:01 AM',
-    },
-    {
-      id: 40,
-      name: 'Anusha Wickramasinghe',
-      studentId: 'STU140',
-      status: 'present',
-      time: '9:02 AM',
-    },
-  ]);
+  // Fetch teacher's classes
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const response = await apiClient.get('/classes/approved');
+        setClasses(response.data);
+      } catch (error) {
+        console.error('Error fetching classes:', error);
+        toast.error('Failed to load classes');
+      } finally {
+        setIsLoadingClasses(false);
+      }
+    };
+    fetchClasses();
+  }, []);
+
+  const handleLoadAttendance = async () => {
+    if (!selectedClassId) {
+      toast.error('Please select a class');
+      return;
+    }
+    setIsLoadingRoster(true);
+    try {
+      const response = await apiClient.get(`/attendance/roster/${selectedClassId}`, {
+        params: { date: selectedDate }
+      });
+      setStudents(response.data);
+    } catch (error) {
+      console.error('Error fetching roster:', error);
+      toast.error('Failed to load class roster');
+    } finally {
+      setIsLoadingRoster(false);
+    }
+  };
+
+  const handleMarkStudent = async (studentId: string, status: string) => {
+    setIsUpdating(true);
+    try {
+      await apiClient.post('/attendance/manual', {
+        class_id: selectedClassId,
+        date: selectedDate,
+        records: [{ student_id: studentId, status: status.charAt(0).toUpperCase() + status.slice(1) }]
+      });
+      
+      // Optimistic update
+      setStudents(prev => prev.map(s => 
+        s.id === studentId ? { 
+          ...s, 
+          status: status as any, 
+          time: status === 'absent' ? undefined : new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) 
+        } : s
+      ));
+      toast.success('Attendance updated');
+    } catch (error) {
+      toast.error('Failed to update attendance');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleBulkUpdate = async (status: string) => {
+    if (!selectedClassId) return;
+    setIsUpdating(true);
+    try {
+      const records = students.map(s => ({
+        student_id: s.id,
+        status: status.charAt(0).toUpperCase() + status.slice(1)
+      }));
+      
+      await apiClient.post('/attendance/manual', {
+        class_id: selectedClassId,
+        date: selectedDate,
+        records
+      });
+      
+      handleLoadAttendance(); // Reload for consistency
+      toast.success(`Marked all as ${status}`);
+    } catch (error) {
+      toast.error('Failed to update bulk attendance');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const presentCount = students.filter((s) => s.status === 'present').length;
   const absentCount = students.filter((s) => s.status === 'absent').length;
   const lateCount = students.filter((s) => s.status === 'late').length;
-  const attendanceRate = Math.round(
-    ((presentCount + lateCount) / students.length) * 100
-  );
+  const attendanceRate = students.length > 0 
+    ? Math.round(((presentCount + lateCount) / students.length) * 100) 
+    : 0;
 
   const getStatusBadge = (status: AttendanceStatus) => {
     switch (status) {
       case 'present':
         return (
-          <span className="px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-semibold flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-semibold flex items-center gap-1 w-fit uppercase tracking-wider">
             <CheckCircle size={14} />
             Present
           </span>
         );
       case 'absent':
         return (
-          <span className="px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center gap-1 w-fit uppercase tracking-wider">
             <XCircle size={14} />
             Absent
           </span>
         );
       case 'late':
         return (
-          <span className="px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-semibold flex items-center gap-1 w-fit">
+          <span className="px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-semibold flex items-center gap-1 w-fit uppercase tracking-wider">
             <Clock size={14} />
             Late
           </span>
         );
-      case 'unmarked':
+      default:
         return (
-          <span className="px-3 py-1 rounded-full bg-gray-500/20 border border-gray-500/30 text-gray-400 text-xs font-semibold">
+          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 text-xs font-semibold uppercase tracking-wider">
             Unmarked
           </span>
         );
     }
   };
 
-  const handleLoadAttendance = () => {
-    setAttendanceLoaded(true);
-    console.log('Loading attendance for:', {
-      class: selectedClass,
-      subject: selectedSubject,
-      date: selectedDate,
-    });
-  };
-
-  const handleMarkAllPresent = () => {
-    setStudents(
-      students.map((s) => ({ ...s, status: 'present', time: '9:00 AM' }))
-    );
-  };
-
-  const handleMarkAllAbsent = () => {
-    setStudents(students.map((s) => ({ ...s, status: 'absent', time: undefined })));
-  };
-
-  const handleClearAttendance = () => {
-    setStudents(
-      students.map((s) => ({ ...s, status: 'unmarked', time: undefined }))
-    );
-  };
-
-  const handleMarkStudent = (
-    studentId: number,
-    status: AttendanceStatus
-  ) => {
-    setStudents(
-      students.map((s) =>
-        s.id === studentId
-          ? {
-              ...s,
-              status,
-              time: status === 'absent' || status === 'unmarked' ? undefined : s.time || '9:00 AM',
-            }
-          : s
-      )
-    );
-  };
-
-  const handleResetStudent = (studentId: number) => {
-    setStudents(
-      students.map((s) =>
-        s.id === studentId
-          ? { ...s, status: 'unmarked', time: undefined }
-          : s
-      )
-    );
-  };
-
-  const handleExportAttendance = () => {
-    alert('Exporting attendance data...');
-  };
-
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Mr. Silva"
-      userInitials="MS"
+      userName="Teacher Dashboard"
+      userInitials="TD"
       notificationCount={8}
       breadcrumb="Attendance"
-      activePage="attendance"
+      activePage="teacher-attendance"
       onNavigate={onNavigate}
       onLogout={onLogout}
     >
@@ -425,21 +188,15 @@ export function TeacherAttendancePage({
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Attendance</h1>
-            <p className="text-white/60">View and manage student attendance</p>
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Attendance Roster</h1>
+            <p className="text-white/60">Manual attendance tracking and status management</p>
           </div>
 
           <div className="flex gap-3">
-            <button
-              onClick={handleExportAttendance}
-              className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/20 transition-colors flex items-center gap-2"
-            >
-              <Download size={18} />
-              Export Attendance
-            </button>
-            <button
-              onClick={handleMarkAllPresent}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(34,197,94,0.6)] transition-all duration-300 flex items-center gap-2"
+             <button
+              onClick={() => handleBulkUpdate('present')}
+              disabled={students.length === 0 || isUpdating}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold shadow-xl shadow-green-900/20 hover:shadow-green-500/40 transition-all duration-300 flex items-center gap-2 active:scale-95 disabled:opacity-50"
             >
               <CheckCheck size={18} />
               Mark All Present
@@ -449,69 +206,34 @@ export function TeacherAttendancePage({
       </div>
 
       {/* Class Selection Panel */}
-      <GlassCard className="p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <GlassCard className="p-6 mb-8 relative border-blue-500/20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Class Dropdown */}
-          <div>
-            <label className="text-white/60 text-sm mb-2 block">
-              Select Class
-            </label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-blue-500/50 transition-colors"
-            >
-              <option value="A/L ICT 2026" className="bg-[#0B0F1A]">
-                A/L ICT 2026
-              </option>
-              <option value="A/L ICT 2025" className="bg-[#0B0F1A]">
-                A/L ICT 2025
-              </option>
-              <option value="Grade 11 ICT" className="bg-[#0B0F1A]">
-                Grade 11 ICT
-              </option>
-              <option value="Grade 10 ICT" className="bg-[#0B0F1A]">
-                Grade 10 ICT
-              </option>
-            </select>
-          </div>
-
-          {/* Subject Dropdown */}
-          <div>
-            <label className="text-white/60 text-sm mb-2 block">
-              Select Subject
-            </label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-blue-500/50 transition-colors"
-            >
-              <option value="ICT" className="bg-[#0B0F1A]">
-                ICT
-              </option>
-              <option value="Database Management" className="bg-[#0B0F1A]">
-                Database Management
-              </option>
-              <option value="Web Development" className="bg-[#0B0F1A]">
-                Web Development
-              </option>
-              <option value="Programming" className="bg-[#0B0F1A]">
-                Programming
-              </option>
-            </select>
-          </div>
+          <CustomDropdown 
+            value={selectedClassId} 
+            onChange={setSelectedClassId} 
+            options={[
+              { value: '', label: 'Select a class...' },
+              ...classes.map(c => ({ value: c.id, label: `${c.subject} - ${c.title}` }))
+            ]}
+            label="Class"
+            placeholder="Select a class..."
+          />
 
           {/* Date Picker */}
           <div>
-            <label className="text-white/60 text-sm mb-2 block">
-              Select Date
+            <label className="text-white/40 text-[10px] uppercase font-bold tracking-widest mb-3 block">
+              Session Date
             </label>
             <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+                <Calendar size={18} />
+              </div>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-blue-500/50 transition-colors"
+                className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-blue-500/50 transition-all font-medium"
               />
             </div>
           </div>
@@ -520,248 +242,135 @@ export function TeacherAttendancePage({
           <div className="flex items-end">
             <button
               onClick={handleLoadAttendance}
-              className="w-full px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(59,130,246,0.6)] transition-all duration-300 flex items-center justify-center gap-2"
+              disabled={isLoadingRoster}
+              className="w-full px-5 py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold hover:shadow-[0_0_24px_rgba(59,130,246,0.5)] transition-all duration-300 flex items-center justify-center gap-2 active:scale-95"
             >
-              <BarChart3 size={18} />
-              Load Attendance
+              {isLoadingRoster ? <Loader2 className="animate-spin" size={20} /> : <BarChart3 size={20} />}
+              Fetch Roster
             </button>
           </div>
         </div>
       </GlassCard>
 
       {/* Attendance Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        {/* Present Students */}
-        <GlassCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white/60 text-sm mb-2">Present Students</p>
-              <p className="text-4xl font-bold text-white">{presentCount}</p>
-              <p className="text-green-400 text-xs mt-1">
-                +{lateCount} late arrivals
-              </p>
+      {students.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <GlassCard className="p-6 border-l-4 border-green-500/50">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Present</p>
+              <UserCheck className="text-green-400" size={20} />
             </div>
-            <div className="w-14 h-14 rounded-xl bg-green-500/20 flex items-center justify-center">
-              <UserCheck className="text-green-400" size={28} />
-            </div>
-          </div>
-        </GlassCard>
+            <p className="text-4xl font-bold text-white">{presentCount}</p>
+            <p className="text-white/40 text-xs mt-2 italic">Including {lateCount} late</p>
+          </GlassCard>
 
-        {/* Absent Students */}
-        <GlassCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white/60 text-sm mb-2">Absent Students</p>
-              <p className="text-4xl font-bold text-white">{absentCount}</p>
-              <p className="text-red-400 text-xs mt-1">
-                {((absentCount / students.length) * 100).toFixed(1)}% of class
-              </p>
+          <GlassCard className="p-6 border-l-4 border-red-500/50">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Absent</p>
+              <UserX className="text-red-400" size={20} />
             </div>
-            <div className="w-14 h-14 rounded-xl bg-red-500/20 flex items-center justify-center">
-              <UserX className="text-red-400" size={28} />
-            </div>
-          </div>
-        </GlassCard>
+            <p className="text-4xl font-bold text-white">{absentCount}</p>
+            <p className="text-white/40 text-xs mt-2 italic px-1 rounded-md bg-red-400/5 w-fit">Needs followup</p>
+          </GlassCard>
 
-        {/* Attendance Rate */}
-        <GlassCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white/60 text-sm mb-2">Attendance Rate</p>
-              <p className="text-4xl font-bold text-white">{attendanceRate}%</p>
-              <p className="text-cyan-400 text-xs mt-1">
-                {presentCount + lateCount}/{students.length} present
-              </p>
+          <GlassCard className="p-6 border-l-4 border-blue-500/50">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-white/40 text-xs font-bold uppercase tracking-widest">Rate</p>
+              <BarChart3 className="text-blue-400" size={20} />
             </div>
-            <div className="w-14 h-14 rounded-xl bg-blue-500/20 flex items-center justify-center">
-              <BarChart3 className="text-blue-400" size={28} />
-            </div>
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Quick Action Bar */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="flex items-center gap-2 text-white/60">
-          <Users size={20} />
-          <span className="font-semibold">Quick Actions:</span>
+            <p className="text-4xl font-bold text-white">{attendanceRate}%</p>
+            <p className="text-white/40 text-xs mt-2 italic">{presentCount + lateCount} / {students.length} record(s)</p>
+          </GlassCard>
         </div>
-        <button
-          onClick={handleMarkAllPresent}
-          className="px-4 py-2 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 font-semibold hover:bg-green-500/30 transition-colors flex items-center gap-2"
-        >
-          <CheckCheck size={16} />
-          Mark All Present
-        </button>
-        <button
-          onClick={handleMarkAllAbsent}
-          className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 font-semibold hover:bg-red-500/30 transition-colors flex items-center gap-2"
-        >
-          <XCircle size={16} />
-          Mark All Absent
-        </button>
-        <button
-          onClick={handleClearAttendance}
-          className="px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 text-orange-400 font-semibold hover:bg-orange-500/30 transition-colors flex items-center gap-2"
-        >
-          <RotateCcw size={16} />
-          Clear Attendance
-        </button>
-      </div>
+      )}
 
       {/* Attendance Table */}
-      <GlassCard className="p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-white">Student Attendance</h3>
-            <p className="text-white/60 text-sm mt-1">
-              {selectedClass} • {selectedSubject} •{' '}
-              {new Date(selectedDate).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </p>
-          </div>
-          <div className="text-white/60 text-sm">
-            Total Students: <span className="text-white font-semibold">{students.length}</span>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-left text-white/60 font-semibold text-sm pb-4 px-4">
-                  #
-                </th>
-                <th className="text-left text-white/60 font-semibold text-sm pb-4 px-4">
-                  Student Name
-                </th>
-                <th className="text-left text-white/60 font-semibold text-sm pb-4 px-4">
-                  Student ID
-                </th>
-                <th className="text-left text-white/60 font-semibold text-sm pb-4 px-4">
-                  Status
-                </th>
-                <th className="text-center text-white/60 font-semibold text-sm pb-4 px-4">
-                  Time
-                </th>
-                <th className="text-center text-white/60 font-semibold text-sm pb-4 px-4">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student, index) => (
-                <tr
-                  key={student.id}
-                  className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                >
-                  <td className="py-4 px-4">
-                    <span className="text-white/60 text-sm">{index + 1}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <p className="text-white font-semibold">{student.name}</p>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-cyan-400 text-sm font-medium">
-                      {student.studentId}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">{getStatusBadge(student.status)}</td>
-                  <td className="py-4 px-4 text-center">
-                    {student.time ? (
-                      <span className="text-white/80 text-sm flex items-center justify-center gap-1">
-                        <Clock size={14} className="text-blue-400" />
-                        {student.time}
-                      </span>
-                    ) : (
-                      <span className="text-white/40 text-sm">—</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleMarkStudent(student.id, 'present')}
-                        className={`p-2 rounded-lg transition-colors ${
-                          student.status === 'present'
-                            ? 'bg-green-500/30 text-green-400'
-                            : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
-                        }`}
-                        title="Mark Present"
-                      >
-                        <CheckCircle size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleMarkStudent(student.id, 'absent')}
-                        className={`p-2 rounded-lg transition-colors ${
-                          student.status === 'absent'
-                            ? 'bg-red-500/30 text-red-400'
-                            : 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                        }`}
-                        title="Mark Absent"
-                      >
-                        <XCircle size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleMarkStudent(student.id, 'late')}
-                        className={`p-2 rounded-lg transition-colors ${
-                          student.status === 'late'
-                            ? 'bg-yellow-500/30 text-yellow-400'
-                            : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400'
-                        }`}
-                        title="Mark Late"
-                      >
-                        <Clock size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleResetStudent(student.id)}
-                        className="p-2 rounded-lg bg-gray-500/20 hover:bg-gray-500/30 text-gray-400 transition-colors"
-                        title="Reset"
-                      >
-                        <RotateCcw size={16} />
-                      </button>
-                    </div>
-                  </td>
+      {students.length > 0 ? (
+        <GlassCard className="p-6">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left text-white/40 text-xs font-bold uppercase tracking-[0.2em] pb-6 px-4">Student</th>
+                  <th className="text-left text-white/40 text-xs font-bold uppercase tracking-[0.2em] pb-6 px-4">ID Reference</th>
+                  <th className="text-left text-white/40 text-xs font-bold uppercase tracking-[0.2em] pb-6 px-4 text-center">Scan Method</th>
+                  <th className="text-center text-white/40 text-xs font-bold uppercase tracking-[0.2em] pb-6 px-4">Status</th>
+                  <th className="text-center text-white/40 text-xs font-bold uppercase tracking-[0.2em] pb-6 px-4">Rec Time</th>
+                  <th className="text-right text-white/40 text-xs font-bold uppercase tracking-[0.2em] pb-6 px-4">Quick Mark</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Table Footer */}
-        <div className="mt-6 pt-4 border-t border-white/10">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-white/60 text-sm">
-                  Present: <span className="text-white font-semibold">{presentCount}</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span className="text-white/60 text-sm">
-                  Late: <span className="text-white font-semibold">{lateCount}</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-white/60 text-sm">
-                  Absent: <span className="text-white font-semibold">{absentCount}</span>
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => alert('Saving attendance...')}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(59,130,246,0.6)] transition-all duration-300"
-            >
-              Save Attendance
-            </button>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {students.map((student) => (
+                  <tr key={student.id} className="hover:bg-white/5 transition-colors group">
+                    <td className="py-5 px-4 font-semibold text-white">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-white font-bold text-sm">
+                           {student.profilePhoto ? <img src={student.profilePhoto} className="w-full h-full rounded-full object-cover" /> : student.name.charAt(0)}
+                        </div>
+                        {student.name}
+                      </div>
+                    </td>
+                    <td className="py-5 px-4 text-white/50 font-mono text-sm uppercase">{student.studentId}</td>
+                    <td className="py-5 px-4 text-center">
+                       {/* Explicitly using record.method if available would be better, but we only have status in student interface now */}
+                       <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-white/30 border border-white/5 font-black uppercase">
+                          {(student as any).method?.replace('_', ' ') || 'SYSTEM'}
+                       </span>
+                    </td>
+                    <td className="py-5 px-4"><div className="flex justify-center">{getStatusBadge(student.status)}</div></td>
+                    <td className="py-5 px-4 text-center text-white/40 text-sm font-medium">{student.time || '—'}</td>
+                    <td className="py-5 px-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleMarkStudent(student.id, 'present')}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${student.status === 'present' ? 'bg-green-500 text-white' : 'bg-white/5 text-white/30 hover:bg-green-500/20'}`}
+                          title="Present"
+                        >
+                          <CheckCircle size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleMarkStudent(student.id, 'late')}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${student.status === 'late' ? 'bg-yellow-500 text-white' : 'bg-white/5 text-white/30 hover:bg-yellow-500/20'}`}
+                          title="Late"
+                        >
+                          <Clock size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleMarkStudent(student.id, 'absent')}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${student.status === 'absent' ? 'bg-red-500 text-white' : 'bg-white/5 text-white/30 hover:bg-red-500/20'}`}
+                          title="Absent"
+                        >
+                          <XCircle size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+          
+          <div className="mt-8 flex justify-end">
+             <button
+               onClick={handleLoadAttendance}
+               className="flex items-center gap-2 text-white/40 hover:text-white transition-all text-xs font-bold uppercase tracking-widest"
+             >
+               <RefreshCw size={14} className={isLoadingRoster ? 'animate-spin' : ''} />
+               Refresh Roster
+             </button>
+          </div>
+        </GlassCard>
+      ) : (
+        <div className="text-center py-32">
+           <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/5">
+              <Users className="text-white/20" size={40} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">No Roster Data</h3>
+           <p className="text-white/40 max-w-xs mx-auto text-sm leading-relaxed">
+             Select a class and date above to view student enrollment and mark attendance records.
+           </p>
         </div>
-      </GlassCard>
+      )}
     </DashboardLayout>
   );
 }

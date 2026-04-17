@@ -4,6 +4,7 @@ import { GlassCard } from '../glass-card';
 import { CustomDropdown } from '../custom-dropdown';
 import apiClient from '@/api/api-client';
 import { QRCodeSVG } from 'qrcode.react';
+import { StudentIdCardUI } from './student-id-card-ui';
 import {
   ArrowLeft,
   Plus,
@@ -439,92 +440,18 @@ export function StudentCardsPage({
               </button>
             </div>
 
-            {/* ID Card Design */}
+            {/* Standardized ID Card Design */}
             <div className="mb-6">
-              <div className="max-w-md mx-auto">
-                {/* Front of Card */}
-                <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-2xl p-8 shadow-2xl border-4 border-white/20">
-                  {/* Header */}
-                  <div className="text-center mb-6">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <GraduationCap className="text-white" size={32} />
-                      <h3 className="text-2xl font-bold text-white">
-                        EWAY Institute
-                      </h3>
-                    </div>
-                    <p className="text-white/80 text-sm">Student Identification Card</p>
-                  </div>
-
-                  {/* Student Photo */}
-                  <div className="flex justify-center mb-6">
-                    <div className="w-32 h-32 rounded-2xl bg-white/10 border-4 border-white/30 flex items-center justify-center overflow-hidden">
-                      {selectedCard.photoUrl ? (
-                        <img
-                          src={selectedCard.photoUrl}
-                          alt="Student"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : photoFile ? (
-                        <img
-                          src={URL.createObjectURL(photoFile)}
-                          alt="Student"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="text-white/40" size={64} />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Student Information */}
-                  <div className="space-y-3 mb-6">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                      <p className="text-white/70 text-xs mb-1">Name</p>
-                      <p className="text-white font-bold text-lg">
-                        {selectedCard.studentName}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                        <p className="text-white/70 text-xs mb-1">Student ID</p>
-                        <p className="text-white font-semibold">
-                          {selectedCard.studentId}
-                        </p>
-                      </div>
-
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                        <p className="text-white/70 text-xs mb-1">Expires</p>
-                        <p className="text-white font-semibold text-sm">
-                          {selectedCard.expiryDate}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* QR Code */}
-                  <div className="flex justify-center">
-                    <div className="bg-white rounded-xl p-4 border-4 border-white/30">
-                        <QRCodeSVG value={selectedCard.studentId} size={110} level="H" />
-                      <p className="text-center text-xs text-gray-700 mt-2 font-semibold">
-                        Scan for Attendance
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="mt-6 text-center border-t border-white/20 pt-4">
-                    <p className="text-white/90 font-semibold text-sm mb-2">
-                      EWAY LMS
-                    </p>
-                    <div className="flex items-center justify-center gap-2 text-white/60 text-xs">
-                      <Calendar size={12} />
-                      <span>Issued: {selectedCard.issuedDate}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <StudentIdCardUI
+                studentName={selectedCard.studentName}
+                studentId={selectedCard.studentId}
+                expiryDate={selectedCard.expiryDate}
+                issuedDate={selectedCard.issuedDate}
+                photoUrl={selectedCard.photoUrl || (photoFile ? URL.createObjectURL(photoFile) : undefined)}
+                qrValue={selectedCard.studentId}
+              />
             </div>
+
 
             {/* Action Buttons */}
             <div className="flex justify-center gap-3">
@@ -561,86 +488,18 @@ export function StudentCardsPage({
               </button>
             </div>
 
-            {/* ID Card Design */}
+            {/* Standardized ID Card Design */}
             <div className="mb-6">
-              <div className="max-w-md mx-auto">
-                {/* Front of Card */}
-                <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 rounded-2xl p-8 shadow-2xl border-4 border-white/20">
-                  {/* Header */}
-                  <div className="text-center mb-6">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <GraduationCap className="text-white" size={32} />
-                      <h3 className="text-2xl font-bold text-white">
-                        EWAY Institute
-                      </h3>
-                    </div>
-                    <p className="text-white/80 text-sm">Student Identification Card</p>
-                  </div>
-
-                  {/* Student Photo */}
-                  <div className="flex justify-center mb-6">
-                    <div className="w-32 h-32 rounded-2xl bg-white/10 border-4 border-white/30 flex items-center justify-center overflow-hidden">
-                      {photoFile ? (
-                        <img
-                          src={URL.createObjectURL(photoFile)}
-                          alt="Student"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="text-white/40" size={64} />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Student Information */}
-                  <div className="space-y-3 mb-6">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                      <p className="text-white/70 text-xs mb-1">Name</p>
-                      <p className="text-white font-bold text-lg">
-                        {generatedCardData.studentName}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                        <p className="text-white/70 text-xs mb-1">Student ID</p>
-                        <p className="text-white font-semibold">
-                          {generatedCardData.studentId}
-                        </p>
-                      </div>
-
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-                        <p className="text-white/70 text-xs mb-1">Expires</p>
-                        <p className="text-white font-semibold text-sm">
-                          {generatedCardData.expiryDate}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* QR Code */}
-                  <div className="flex justify-center">
-                    <div className="bg-white rounded-xl p-4 border-4 border-white/30">
-                        <QRCodeSVG value={generatedCardData.studentId} size={110} level="H" />
-                      <p className="text-center text-xs text-gray-700 mt-2 font-semibold">
-                        Scan for Attendance
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="mt-6 text-center border-t border-white/20 pt-4">
-                    <p className="text-white/90 font-semibold text-sm mb-2">
-                      EWAY LMS
-                    </p>
-                    <div className="flex items-center justify-center gap-2 text-white/60 text-xs">
-                      <Calendar size={12} />
-                      <span>Issued: {generatedCardData.issuedDate}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <StudentIdCardUI
+                studentName={generatedCardData.studentName}
+                studentId={generatedCardData.studentId}
+                expiryDate={generatedCardData.expiryDate}
+                issuedDate={generatedCardData.issuedDate}
+                photoUrl={photoFile ? URL.createObjectURL(photoFile) : undefined}
+                qrValue={generatedCardData.studentId}
+              />
             </div>
+
 
             {/* Action Buttons */}
             <div className="flex justify-center gap-3">

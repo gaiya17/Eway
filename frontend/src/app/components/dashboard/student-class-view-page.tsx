@@ -88,7 +88,7 @@ function useCountdown(targetDate: string | null) {
 }
 
 // ─── Live Material Row ────────────────────────────────────────────────────
-function LiveMaterialRow({ material, teacher }: { material: Material; teacher: any }) {
+function LiveMaterialRow({ material, teacher, classId }: { material: Material; teacher: any; classId: string }) {
   const { timeLeft, isLive, isPast, minutesUntil } = useCountdown(material.scheduled_at || null);
   const [joined, setJoined] = useState(false);
   const isJitsi = material.url?.includes('meet.jit.si');
@@ -105,6 +105,7 @@ function LiveMaterialRow({ material, teacher }: { material: Material; teacher: a
           title={material.title} 
           userName={teacher?.first_name ? 'Student' : 'Student'} 
           role="student"
+          classId={classId}
           onClose={() => setJoined(false)} 
         />
       </div>
@@ -543,6 +544,7 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
               title={bannerJoinedSession.title}
               userName="Student"
               role="student"
+              classId={classId}
               onClose={() => setBannerJoinedSession(null)}
             />
           </div>
@@ -622,7 +624,7 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
                               .sort((a, b) => a.order_index - b.order_index)
                               .map((material) =>
                                 material.type === 'live' ? (
-                                  <LiveMaterialRow key={material.id} material={material} teacher={teacher} />
+                                  <LiveMaterialRow key={material.id} material={material} teacher={teacher} classId={classId} />
                                 ) : (
                                   <MaterialRow key={material.id} material={material} />
                                 )

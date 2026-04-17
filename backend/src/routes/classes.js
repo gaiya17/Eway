@@ -274,11 +274,6 @@ router.get('/pending', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/classes/approved
- * @desc    Get all approved classes (for public browsing)
- * @access  Public
- */
 router.get('/approved', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -289,6 +284,36 @@ router.get('/approved', async (req, res) => {
 
     if (error) throw error;
     res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+/**
+ * @route   GET /api/classes/today
+ * @desc    Get all approved classes scheduled for today
+ * @access  Private (Staff/Admin/Teacher)
+ */
+router.get('/today', verifyToken, async (req, res) => {
+  try {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = days[new Date().getDay()];
+
+    const { data: approvedClasses, error } = await supabaseAdmin
+      .from('classes')
+      .select('*, profiles:teacher_id(first_name, last_name)')
+      .eq('status', 'approved');
+
+    if (error) throw error;
+
+    // Filter by schedule
+    const todayClasses = (approvedClasses || []).filter(c => {
+      const schedules = c.schedules || [];
+      return Array.isArray(schedules) && schedules.some(s => s.day === today);
+    });
+
+    res.json(todayClasses);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

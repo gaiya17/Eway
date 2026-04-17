@@ -51,7 +51,8 @@ export function DashboardSidebar({ userRole, activePage = 'dashboard', onNavigat
         { id: 'study-packs', label: 'Study Packs', icon: BookOpen },
         { id: 'teachers', label: 'Teachers', icon: User },
         { id: 'chat', label: 'Chat with Teachers', icon: HelpCircle },
-        { id: 'performance', label: 'My Performance', icon: QrCode },
+        { id: 'performance', label: 'My Performance', icon: BarChart3 },
+        { id: 'my-attendance', label: 'My Attendance', icon: CheckCircle },
         { id: 'support', label: 'Support', icon: Headphones },
       ];
     }
@@ -63,6 +64,7 @@ export function DashboardSidebar({ userRole, activePage = 'dashboard', onNavigat
         { id: 'teacher-study-packs', label: 'Study Packs', icon: Database },
         { id: 'teacher-tutorials', label: 'Free Tutorials', icon: Youtube },
         { id: 'teacher-attendance', label: 'Attendance', icon: QrCode },
+        { id: 'teacher-reports', label: 'Reports', icon: BarChart3 },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'teacher-chat', label: 'Chat with Students', icon: MessageCircle },
       ];

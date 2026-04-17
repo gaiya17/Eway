@@ -16,6 +16,7 @@ import {
   Activity,
   BarChart3,
   Radio,
+  Bell,
 } from 'lucide-react';
 import {
   LineChart,
@@ -120,24 +121,28 @@ export function TeacherDashboardHome({
     profilePhoto: string;
   } | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [dashboardData, setDashboardData] = React.useState<any>(null);
 
   React.useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const response = await apiClient.get('/users/profile');
-        const data = response.data;
+        const profileRes = await apiClient.get('/users/profile');
         setProfile({
-          firstName: data.first_name || 'Teacher',
-          lastName: data.last_name || '',
-          profilePhoto: data.profile_photo || '',
+          firstName: profileRes.data.first_name || 'Teacher',
+          lastName: profileRes.data.last_name || '',
+          profilePhoto: profileRes.data.profile_photo || '',
         });
+
+        const statsRes = await apiClient.get('/reports/teacher/dashboard-stats');
+        setDashboardData(statsRes.data);
       } catch (error) {
-        console.error('Error fetching teacher dashboard profile:', error);
+        console.error('Error fetching teacher dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProfile();
+    fetchData();
   }, []);
 
   const getGreeting = () => {
@@ -145,6 +150,19 @@ export function TeacherDashboardHome({
     if (hour < 12) return 'Good Morning';
     if (hour < 18) return 'Good Afternoon';
     return 'Good Evening';
+  };
+
+  const getActivityStyles = (type: string) => {
+    switch (type) {
+      case 'submission':
+        return { icon: CheckCircle, iconColor: 'text-green-400', bgColor: 'bg-green-500/20' };
+      case 'attendance':
+        return { icon: Clock, iconColor: 'text-blue-400', bgColor: 'bg-blue-500/20' };
+      case 'deadline':
+        return { icon: AlertCircle, iconColor: 'text-orange-400', bgColor: 'bg-orange-500/20' };
+      default:
+        return { icon: Bell, iconColor: 'text-cyan-400', bgColor: 'bg-cyan-500/20' };
+    }
   };
 
   const quickActions = [
@@ -180,110 +198,67 @@ export function TeacherDashboardHome({
   const stats = [
     {
       title: 'Total Classes',
-      value: '8',
+      value: dashboardData?.stats?.totalClasses || '0',
       icon: BookOpen,
       color: 'blue',
       bgColor: 'bg-blue-500/20',
       textColor: 'text-blue-400',
-      change: '+2 this month',
+      change: 'Live from system',
     },
     {
       title: 'Total Students',
-      value: '215',
+      value: dashboardData?.stats?.totalStudents || '0',
       icon: Users,
       color: 'green',
       bgColor: 'bg-green-500/20',
       textColor: 'text-green-400',
-      change: '+18 this month',
+      change: 'Enrolled students',
     },
     {
       title: 'Assignments',
-      value: '12',
+      value: dashboardData?.stats?.assignments || '0',
       icon: ClipboardList,
       color: 'orange',
       bgColor: 'bg-orange-500/20',
       textColor: 'text-orange-400',
-      change: '3 pending review',
+      change: 'Created assignments',
     },
     {
       title: 'Attendance Rate',
-      value: '94%',
+      value: dashboardData?.stats?.attendanceRate || '0%',
       icon: Activity,
       color: 'purple',
       bgColor: 'bg-purple-500/20',
       textColor: 'text-purple-400',
-      change: '+2% from last week',
+      change: 'Average across classes',
     },
   ];
 
-  // Generate some realistic upcoming live sessions for the demo
-  const upcomingSessions = [
-    {
-      title: 'Week 4: Advanced Database Queries',
-      className: 'Database Systems',
-      time: 'In 30 mins',
-      rawTime: new Date(Date.now() + 30 * 60000).toISOString(),
-    },
-    {
-      title: 'UI Component Library Design',
-      className: 'Web Development',
-      time: 'Tomorrow, 10:00 AM',
-      rawTime: new Date(Date.now() + 24 * 3600000).toISOString(),
-    }
+  const upcomingSessions = dashboardData?.upcomingSessions || [];
+  const recentActivity = dashboardData?.recentActivity || [];
+  const attendanceData = dashboardData?.attendanceTrend || [
+    { id: 'mon', day: 'Mon', rate: 0 },
+    { id: 'tue', day: 'Tue', rate: 0 },
+    { id: 'wed', day: 'Wed', rate: 0 },
+    { id: 'thu', day: 'Thu', rate: 0 },
+    { id: 'fri', day: 'Fri', rate: 0 },
+    { id: 'sat', day: 'Sat', rate: 0 },
+    { id: 'sun', day: 'Sun', rate: 0 },
   ];
 
-  const recentActivity = [
-    {
-      title: 'New assignment submission',
-      description: 'React Components - Web Development Class',
-      time: '15 minutes ago',
-      icon: CheckCircle,
-      iconColor: 'text-green-400',
-      bgColor: 'bg-green-500/20',
-    },
-    {
-      title: 'Upcoming class today',
-      description: 'Database Systems - 2:00 PM',
-      time: 'In 3 hours',
-      icon: Clock,
-      iconColor: 'text-blue-400',
-      bgColor: 'bg-blue-500/20',
-    },
-    {
-      title: 'Assignment deadline approaching',
-      description: 'UI/UX Design Project - Due in 2 days',
-      time: '2 days remaining',
-      icon: AlertCircle,
-      iconColor: 'text-orange-400',
-      bgColor: 'bg-orange-500/20',
-    },
-    {
-      title: 'Student query received',
-      description: 'Question about JavaScript Arrays',
-      time: '1 hour ago',
-      icon: Users,
-      iconColor: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/20',
-    },
-    {
-      title: 'Class completed successfully',
-      description: 'Web Development - Morning Session',
-      time: '3 hours ago',
-      icon: Award,
-      iconColor: 'text-purple-400',
-      bgColor: 'bg-purple-500/20',
-    },
-  ];
-
-  const attendanceData = [
-    { id: 'mon', day: 'Mon', rate: 92 },
-    { id: 'tue', day: 'Tue', rate: 88 },
-    { id: 'wed', day: 'Wed', rate: 95 },
-    { id: 'thu', day: 'Thu', rate: 91 },
-    { id: 'fri', day: 'Fri', rate: 94 },
-    { id: 'sat', day: 'Sat', rate: 96 },
-    { id: 'sun', day: 'Sun', rate: 89 },
-  ];
+  if (isLoading && !dashboardData) {
+    return (
+      <DashboardLayout
+        userRole="teacher"
+        breadcrumb="Teacher Dashboard"
+        activePage="dashboard"
+      >
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -291,94 +266,83 @@ export function TeacherDashboardHome({
       userName={profile ? `${profile.firstName} ${profile.lastName}` : 'Teacher'}
       userInitials={profile ? `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}` : 'TR'}
       profilePhoto={profile?.profilePhoto}
-      notificationCount={8}
-      breadcrumb="Dashboard"
+      notificationCount={5}
+      breadcrumb="Teacher Dashboard"
       activePage="dashboard"
       onNavigate={onNavigate}
       onLogout={onLogout}
     >
-      {/* Greeting Card */}
-      <GlassCard className="p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              {getGreeting()}, {profile?.firstName ? `${profile.firstName} ${profile.lastName}` : 'Teacher'}! 👋
+      {/* Greeting Header */}
+      <div className="mb-8 p-8 rounded-[2rem] bg-gradient-to-br from-blue-600/20 via-indigo-600/10 to-transparent border border-white/10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] -mr-32 -mt-32" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-4xl font-bold text-white mb-2">
+              {getGreeting()}, {profile?.firstName || 'Teacher'}! 🎓
             </h1>
-            <p className="text-white/60">Let's inspire students today</p>
+            <p className="text-white/60 text-lg max-w-2xl">
+              You have <span className="text-white font-bold">{dashboardData?.upcomingSessions?.filter((s:any) => s.isToday).length || 0} classes</span> scheduled for today. Ready to inspire your students?
+            </p>
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
             <Activity size={20} className="text-green-400" />
             <div>
               <p className="text-xs text-white/60">Today's Classes</p>
-              <p className="text-lg font-bold text-green-400">3</p>
+              <p className="text-lg font-bold text-green-400">{dashboardData?.upcomingSessions?.filter((s:any) => s.isToday).length || 0}</p>
             </div>
           </div>
         </div>
-      </GlassCard>
+      </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (
             <GlassCard
               key={action.id}
-              className="p-6 cursor-pointer hover:scale-105 transition-transform duration-300 group"
+              className="p-6 cursor-pointer hover:scale-[1.02] transition-all duration-300 group relative overflow-hidden"
               onClick={action.onClick}
             >
-              <div
-                className={`w-14 h-14 rounded-xl ${action.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
-              >
+              <div className={`absolute inset-0 bg-gradient-to-br ${action.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+              <div className={`w-14 h-14 rounded-xl ${action.bgColor} flex items-center justify-center mb-4 relative z-10`}>
                 <Icon className="text-white" size={28} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">
-                {action.title}
-              </h3>
-              <p className="text-white/60 text-sm">{action.description}</p>
+              <div className="relative z-10">
+                <h3 className="text-lg font-bold text-white mb-1">{action.title}</h3>
+                <p className="text-white/60 text-sm">{action.description}</p>
+              </div>
             </GlassCard>
           );
         })}
       </div>
 
-      {/* Hero Banner */}
-      <GlassCard className="p-8 mb-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl" />
-        <div className="relative z-10">
-          <h2 className="text-2xl font-bold text-white mb-2">
-            Welcome to Eway Teacher Portal
-          </h2>
-          <p className="text-white/70 mb-4">
-            Empowering Education Through Innovation
-          </p>
-          <button
-            onClick={() => onNavigate?.('teacher-profile')}
-            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:shadow-[0_0_24px_rgba(59,130,246,0.6)] transition-all duration-300"
-          >
-            View My Profile
-          </button>
-        </div>
-      </GlassCard>
-
-      {/* Upcoming Live Sessions */}
-      <h2 className="text-xl font-bold text-white mb-4">Your Upcoming Live Classes</h2>
-      <GlassCard className="p-6 mb-6">
+      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+        <Clock className="text-blue-400" size={24} />
+        Your Upcoming Live Classes
+      </h2>
+      <GlassCard className="p-6 mb-8">
         <div className="space-y-4">
-          {upcomingSessions.map((session, index) => (
-            <TeacherUpcomingClassRow key={index} session={session} onNavigate={onNavigate || (() => {})} />
-          ))}
+          {upcomingSessions.length > 0 ? (
+            upcomingSessions.map((session, index) => (
+              <TeacherUpcomingClassRow key={index} session={session} onNavigate={onNavigate || (() => {})} />
+            ))
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-white/40 italic">No upcoming sessions today or tomorrow.</p>
+            </div>
+          )}
         </div>
       </GlassCard>
 
-      {/* Performance Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <GlassCard key={index} className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <div
-                  className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}
-                >
+                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
                   <Icon className={stat.textColor} size={24} />
                 </div>
               </div>
@@ -390,39 +354,39 @@ export function TeacherDashboardHome({
         })}
       </div>
 
-      {/* Recent Activity & Attendance Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Recent Activity */}
         <GlassCard className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-white">Recent Activity</h3>
-            <Calendar className="text-white/40" size={20} />
+            <Bell className="text-white/40" size={20} />
           </div>
           <div className="space-y-4">
-            {recentActivity.map((activity, index) => {
-              const Icon = activity.icon;
-              return (
-                <div
-                  key={index}
-                  className="flex items-start gap-4 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                >
+            {recentActivity.length > 0 ? (
+              recentActivity.map((activity, index) => {
+                const styles = getActivityStyles(activity.type);
+                const Icon = styles.icon;
+                return (
                   <div
-                    className={`w-10 h-10 rounded-lg ${activity.bgColor} flex items-center justify-center flex-shrink-0`}
+                    key={index}
+                    className="flex items-start gap-4 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
                   >
-                    <Icon className={activity.iconColor} size={18} />
+                    <div className={`w-10 h-10 rounded-lg ${styles.bgColor} flex items-center justify-center flex-shrink-0`}>
+                      <Icon className={styles.iconColor} size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-semibold text-sm mb-1">{activity.title}</h4>
+                      <p className="text-white/60 text-xs mb-1 truncate">{activity.description}</p>
+                      <p className="text-white/40 text-xs">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-semibold text-sm mb-1">
-                      {activity.title}
-                    </h4>
-                    <p className="text-white/60 text-xs mb-1 truncate">
-                      {activity.description}
-                    </p>
-                    <p className="text-white/40 text-xs">{activity.time}</p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-white/40 italic">No recent student activity.</p>
+              </div>
+            )}
           </div>
         </GlassCard>
 
@@ -446,7 +410,7 @@ export function TeacherDashboardHome({
                   key="yaxis"
                   stroke="rgba(255,255,255,0.5)"
                   style={{ fontSize: '12px' }}
-                  domain={[80, 100]}
+                  domain={[0, 100]}
                 />
                 <Tooltip
                   key="tooltip"
@@ -472,7 +436,7 @@ export function TeacherDashboardHome({
           </div>
           <div className="mt-4 flex items-center justify-between text-sm">
             <span className="text-white/60">Weekly Average</span>
-            <span className="text-cyan-400 font-bold">92.4%</span>
+            <span className="text-cyan-400 font-bold">{dashboardData?.weeklyAvg || 0}%</span>
           </div>
         </GlassCard>
       </div>

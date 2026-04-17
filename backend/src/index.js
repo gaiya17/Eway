@@ -24,9 +24,11 @@ const messageRoutes = require('./routes/messages');
 const paymentRoutes = require('./routes/payments');
 const notificationRoutes = require('./routes/notifications');
 const assignmentsRoutes = require('./routes/assignments');
+const attendanceRoutes = require('./routes/attendance');
 
 const studyPacksRouter = require('./routes/study-packs');
 const freeTutorialsRouter = require('./routes/free-tutorials');
+const reportsRouter = require('./routes/reports');
 const adminRouter = require('./routes/admin');
 
 const app = express();
@@ -54,10 +56,12 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 app.use('/api/study-packs', studyPacksRouter);
 app.use('/api/free-tutorials', freeTutorialsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/reports', reportsRouter);
 
 /**
  * Root health check route
