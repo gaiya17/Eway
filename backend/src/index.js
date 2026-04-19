@@ -16,6 +16,9 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
+const { activityLog } = require('./middleware/activityLogger');
+
+
 // Route Imports
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
@@ -31,6 +34,7 @@ const freeTutorialsRouter = require('./routes/free-tutorials');
 const reportsRouter = require('./routes/reports');
 const adminRouter = require('./routes/admin');
 const chatbotRouter = require('./routes/chatbot');
+const galleryRouter = require('./routes/gallery');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -50,20 +54,21 @@ app.use('/uploads/slips', express.static(path.join(__dirname, '../uploads/slips'
 app.use('/uploads/tutorials', express.static(path.join(__dirname, '../uploads/tutorials')));
 
 // API Sub-route Mounting
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/classes', classRoutes);
+app.use('/api/auth', activityLog('Authentication'), authRoutes);
+app.use('/api/users', activityLog('User Management'), userRoutes);
+app.use('/api/classes', activityLog('Classes'), classRoutes);
 app.use('/api/messages', messageRoutes);
-app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', activityLog('Payments'), paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/assignments', assignmentsRoutes);
-app.use('/api/attendance', attendanceRoutes);
+app.use('/api/attendance', activityLog('Attendance'), attendanceRoutes);
 
 app.use('/api/study-packs', studyPacksRouter);
 app.use('/api/free-tutorials', freeTutorialsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/chatbot', chatbotRouter);
+app.use('/api/gallery', galleryRouter);
 
 /**
  * Root health check route

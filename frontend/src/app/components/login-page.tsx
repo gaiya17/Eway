@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import apiClient from '@/api/api-client';
 import { GlassCard } from './glass-card';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import ewayLogo from 'figma:asset/5839cd6ca5cc93c08af5158653805fc6c7e77232.png';
 
 interface LoginPageProps {
@@ -194,7 +194,16 @@ export function LoginPage({
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
+        {onBackToHome && (
+          <button 
+            onClick={onBackToHome}
+            className="hidden lg:flex absolute top-8 left-8 items-center gap-2 text-white/50 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+            Back to Homepage
+          </button>
+        )}
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">

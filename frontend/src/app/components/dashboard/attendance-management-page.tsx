@@ -243,8 +243,6 @@ export function AttendanceManagementPage({
   return (
     <DashboardLayout
       userRole="staff"
-      userName="Ms. Silva"
-      userInitials="MS"
       notificationCount={5}
       breadcrumb="Attendance Management"
       activePage="attendance-management"

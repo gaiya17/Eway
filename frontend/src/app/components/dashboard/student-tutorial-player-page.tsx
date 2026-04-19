@@ -82,7 +82,7 @@ export function StudentTutorialPlayerPage({
   if (!isLoading && (!tutorialId || tutorialId === 'undefined')) {
     return (
       <DashboardLayout
-        userRole="student" userName="Student" userInitials="ST" breadcrumb="Tutorial Player"
+        userRole="student" breadcrumb="Tutorial Player"
         onNavigate={onNavigate} onLogout={onLogout}
       >
         <div className="flex flex-col items-center justify-center py-40 text-center">
@@ -102,7 +102,7 @@ export function StudentTutorialPlayerPage({
   if (isLoading) {
     return (
       <DashboardLayout
-        userRole="student" userName="Student" userInitials="ST" breadcrumb="Tutorial Player"
+        userRole="student" breadcrumb="Tutorial Player"
         onNavigate={onNavigate} onLogout={onLogout}
       >
         <div className="flex justify-center items-center h-[60vh]">
@@ -119,8 +119,6 @@ export function StudentTutorialPlayerPage({
   return (
     <DashboardLayout
       userRole="student"
-      userName="Student"
-      userInitials="ST"
       breadcrumb={`Library / ${tutorial?.title || 'Tutorial'}`}
       activePage="tutorials"
       onNavigate={onNavigate}

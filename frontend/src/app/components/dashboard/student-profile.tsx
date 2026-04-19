@@ -192,9 +192,6 @@ export function StudentProfile({ onLogout, onNavigate }: StudentProfileProps) {
 
       <DashboardLayout
         userRole="student"
-        userName={formData.firstName || 'Student'}
-        userInitials={`${formData.firstName?.[0] || ''}${formData.lastName?.[0] || ''}`}
-        profilePhoto={formData.profilePhoto}
         notificationCount={5}
         breadcrumb="My Profile"
         activePage="profile"

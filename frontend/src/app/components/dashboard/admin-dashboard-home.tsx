@@ -3,6 +3,7 @@ import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import apiClient from '@/api/api-client';
 import { AddUserModal } from './add-user-modal';
+import { getGreeting } from '../../utils/helpers';
 import {
   Users,
   Activity,
@@ -41,25 +42,37 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
     lastName: string;
     profilePhoto: string;
   } | null>(null);
+  const [stats, setStats] = useState<{
+    users: number;
+    revenue: number;
+    pendingPayments: number;
+    attendanceToday: number;
+    totalLogs: number;
+    recentActivities: any[];
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   React.useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const response = await apiClient.get('/users/profile');
-        const data = response.data;
+        const [profileRes, statsRes] = await Promise.all([
+          apiClient.get('/users/profile'),
+          apiClient.get('/admin/dashboard-stats')
+        ]);
+        
         setProfile({
-          firstName: data.first_name || 'Admin',
-          lastName: data.last_name || '',
-          profilePhoto: data.profile_photo || '',
+          firstName: profileRes.data.first_name || 'Admin',
+          lastName: profileRes.data.last_name || '',
+          profilePhoto: profileRes.data.profile_photo || '',
         });
+        
+        setStats(statsRes.data);
       } catch (error) {
-        console.error('Error fetching admin dashboard profile:', error);
+        console.error('Error fetching admin dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProfile();
+    fetchDashboardData();
   }, []);
   // Sample data for the chart
   const chartData = [
@@ -73,13 +86,22 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
   ];
 
   // Recent activities data
-  const recentActivities = [
-    { id: 1, user: 'Visal Sankapala', action: 'Logged in', time: '2 mins ago' },
-    { id: 2, user: 'Risidu Mewan', action: 'Completed assignment', time: '15 mins ago' },
-    { id: 3, user: 'Dekum Diwanjana', action: 'Payment verified', time: '1 hour ago' },
-    { id: 4, user: 'Ravindu Sasanka', action: 'Attendance marked', time: '2 hours ago' },
-    { id: 5, user: 'Lakshitha Bandara', action: 'Report generated', time: '3 hours ago' },
-  ];
+  const activities = stats?.recentActivities || [];
+
+  const timeSince = (date: string) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " mins";
+    return Math.floor(seconds) + " secs";
+  };
 
   // System health data
   const systemHealth = [
@@ -114,7 +136,7 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
       showSystemStatus={true}
     >
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Good Evening, {profile?.firstName || 'Admin'} 👋</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">{getGreeting()}, {profile?.firstName || 'Admin'} 👋</h1>
         <p className="text-white/60">System Control & Performance Overview</p>
       </div>
 
@@ -132,7 +154,7 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
             </div>
           </div>
           <h3 className="text-white/60 text-sm mb-1">Total Users</h3>
-          <p className="text-white text-3xl font-bold">2,847</p>
+          <p className="text-white text-3xl font-bold">{stats?.users.toLocaleString() || '0'}</p>
         </GlassCard>
 
         {/* Active Sessions */}
@@ -147,7 +169,7 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
             </div>
           </div>
           <h3 className="text-white/60 text-sm mb-1">Active Sessions</h3>
-          <p className="text-white text-3xl font-bold">1,203</p>
+          <p className="text-white text-3xl font-bold">{stats?.totalLogs.toLocaleString() || '0'}</p>
         </GlassCard>
 
         {/* Revenue */}
@@ -161,8 +183,8 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
               <span>+15.3%</span>
             </div>
           </div>
-          <h3 className="text-white/60 text-sm mb-1">Revenue</h3>
-          <p className="text-white text-3xl font-bold">LKR 45,678</p>
+          <h3 className="text-white/60 text-sm mb-1">Total Revenue</h3>
+          <p className="text-white text-3xl font-bold">LKR {stats?.revenue.toLocaleString() || '0'}</p>
         </GlassCard>
 
         {/* Pending Payments */}
@@ -177,7 +199,7 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
             </div>
           </div>
           <h3 className="text-white/60 text-sm mb-1">Pending Payments</h3>
-          <p className="text-white text-3xl font-bold">23</p>
+          <p className="text-white text-3xl font-bold">{stats?.pendingPayments || '0'}</p>
         </GlassCard>
       </div>
 
@@ -240,7 +262,7 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
           <GlassCard className="p-6">
             <h2 className="text-xl font-bold text-white mb-6">Recent Activities</h2>
             <div className="space-y-4">
-              {recentActivities.map((activity) => (
+              {activities.length > 0 ? activities.map((activity) => (
                 <div
                   key={activity.id}
                   className="flex items-start gap-3 pb-4 border-b border-white/5 last:border-0 last:pb-0"
@@ -251,10 +273,12 @@ export function AdminDashboardHome({ onLogout, onNavigate }: AdminDashboardHomeP
                       {activity.user}
                     </p>
                     <p className="text-white/60 text-sm">{activity.action}</p>
-                    <p className="text-white/40 text-xs mt-1">{activity.time}</p>
+                    <p className="text-white/40 text-[10px] mt-1 font-mono uppercase tracking-tighter">{timeSince(activity.time)} ago</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className="text-white/40 text-center py-10 italic">No recent activities available.</p>
+              )}
             </div>
           </GlassCard>
         </div>

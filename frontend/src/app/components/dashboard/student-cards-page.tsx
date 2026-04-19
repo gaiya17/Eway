@@ -182,8 +182,6 @@ export function StudentCardsPage({
   return (
     <DashboardLayout
       userRole="staff"
-      userName="Ms. Silva"
-      userInitials="MS"
       notificationCount={5}
       breadcrumb="Student Cards"
       activePage="student-cards"

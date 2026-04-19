@@ -70,8 +70,6 @@ export function FreeTutorialsPage({ onLogout, onNavigate }: FreeTutorialsPagePro
     <>
       <DashboardLayout
         userRole="student"
-        userName="Student"
-        userInitials="ST"
         notificationCount={5}
         breadcrumb="Free Tutorials"
         activePage="tutorials"

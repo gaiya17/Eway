@@ -6,6 +6,8 @@ import apiClient from '@/api/api-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { StudentIdCardUI } from './student-id-card-ui';
 import ewayLogo from '@/assets/5839cd6ca5cc93c08af5158653805fc6c7e77232.png';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 import {
   ArrowLeft,
@@ -37,6 +39,8 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
     joinedDate: string;
   } | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const cardRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const fetchProfile = async () => {
@@ -76,9 +80,32 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
 
   const qrCodeData = studentData.studentId;
 
-  const handleDownloadPDF = () => {
-    console.log('Downloading ID card as PDF...');
-    alert('PDF download feature - Coming soon!');
+  const handleDownloadPDF = async () => {
+    if (!cardRef.current || isDownloading) return;
+    
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 3, // Higher scale for better quality
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`Student_ID_${studentData.studentId}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. This may be due to complex CSS styles or network issues with the profile photo.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isLoading) {
@@ -95,9 +122,6 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
     <>
       <DashboardLayout
         userRole="student"
-        userName={studentData.firstName}
-        userInitials={`${studentData.firstName[0]}${studentData.lastName?.[0] || ''}`}
-        profilePhoto={profile?.profilePhoto}
         notificationCount={5}
         breadcrumb="Student ID Card"
         activePage="student-id"
@@ -108,30 +132,35 @@ export function StudentIdCard({ onLogout, onNavigate }: StudentIdCardProps) {
           {/* Main ID Card - Vertical Standardized Design */}
           <div className="flex justify-center overflow-x-auto pb-4 custom-scrollbar">
             <div className="w-full max-w-2xl transition-all duration-500">
-              <StudentIdCardUI
-                studentName={`${studentData.firstName} ${studentData.lastName}`}
-                studentId={studentData.studentId}
-                expiryDate={studentData.expiryDate}
-                issuedDate={studentData.issueDate}
-                photoUrl={profile?.profilePhoto}
-                qrValue={qrCodeData}
-              />
+              <div ref={cardRef}>
+                <StudentIdCardUI
+                  studentName={`${studentData.firstName} ${studentData.lastName}`}
+                  studentId={studentData.studentId}
+                  expiryDate={studentData.expiryDate}
+                  issuedDate={studentData.issueDate}
+                  photoUrl={profile?.profilePhoto}
+                  qrValue={qrCodeData}
+                />
+              </div>
 
               {/* Action Buttons Below Card */}
               <div className="mt-10 flex flex-col sm:flex-row gap-4">
                 <button
                   onClick={handleDownloadPDF}
-                  className="flex-1 px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xl hover:shadow-blue-500/40 transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2"
+                  disabled={isDownloading}
+                  className="w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xl hover:shadow-blue-500/40 transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  <Download size={20} />
-                  Download PDF
-                </button>
-                <button 
-                  onClick={() => window.print()}
-                  className="flex-1 px-6 py-4 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  <Printer size={20} />
-                  Print Card
+                  {isDownloading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Generating PDF...
+                    </div>
+                  ) : (
+                    <>
+                      <Download size={24} />
+                      Download Your Digital ID Card
+                    </>
+                  )}
                 </button>
               </div>
             </div>

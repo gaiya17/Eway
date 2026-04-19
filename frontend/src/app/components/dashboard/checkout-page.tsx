@@ -94,7 +94,7 @@ export function CheckoutPage({ onLogout, onNavigate, courseData }: CheckoutPageP
 
   // ── SUBMITTED STATE ──────────────────────────────────────
   if (submitStatus === 'submitted') return (
-    <><DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+    <><DashboardLayout userRole="student" notificationCount={0}
         breadcrumb="Payment Submitted" activePage="purchase" onNavigate={onNavigate} onLogout={onLogout}>
         <div className="min-h-[600px] flex items-center justify-center">
           <GlassCard className="p-12 text-center max-w-lg mx-auto">
@@ -132,7 +132,7 @@ export function CheckoutPage({ onLogout, onNavigate, courseData }: CheckoutPageP
 
   // ── ERROR / DUPLICATE STATE ──────────────────────────────
   if (submitStatus === 'error' || submitStatus === 'duplicate') return (
-    <><DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+    <><DashboardLayout userRole="student" notificationCount={0}
         breadcrumb="Payment Error" activePage="purchase" onNavigate={onNavigate} onLogout={onLogout}>
         <div className="min-h-[600px] flex items-center justify-center">
           <GlassCard className="p-12 text-center max-w-md mx-auto">
@@ -162,7 +162,7 @@ export function CheckoutPage({ onLogout, onNavigate, courseData }: CheckoutPageP
 
   // ── MAIN CHECKOUT UI ─────────────────────────────────────
   return (
-    <><DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+    <><DashboardLayout userRole="student" notificationCount={0}
         breadcrumb="Checkout" activePage="purchase" onNavigate={onNavigate} onLogout={onLogout}>
         <div className="space-y-8">
           <div>

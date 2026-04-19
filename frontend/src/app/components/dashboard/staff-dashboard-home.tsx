@@ -2,6 +2,7 @@ import React from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import apiClient from '@/api/api-client';
+import { getGreeting } from '../../utils/helpers';
 import {
   CreditCard,
   FileText,
@@ -29,34 +30,40 @@ export function StaffDashboardHome({
     lastName: string;
     profilePhoto: string;
   } | null>(null);
+  const [statsData, setStatsData] = React.useState<{
+    paymentsVerified: number;
+    pendingApprovals: number;
+    reportsGenerated: number;
+    attendanceToday: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const response = await apiClient.get('/users/profile');
-        const data = response.data;
+        const [profileResp, statsResp] = await Promise.all([
+          apiClient.get('/users/profile'),
+          apiClient.get('/users/staff/dashboard')
+        ]);
+        
+        const pData = profileResp.data;
         setProfile({
-          firstName: data.first_name || 'Staff',
-          lastName: data.last_name || '',
-          profilePhoto: data.profile_photo || '',
+          firstName: pData.first_name || 'Staff',
+          lastName: pData.last_name || '',
+          profilePhoto: pData.profile_photo || '',
         });
+
+        setStatsData(statsResp.data.stats);
       } catch (error) {
-        console.error('Error fetching staff dashboard profile:', error);
+        console.error('Error fetching staff dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProfile();
+    fetchDashboardData();
   }, []);
 
-  const currentHour = new Date().getHours();
-  let greeting = 'Good Morning';
-  if (currentHour >= 12 && currentHour < 17) {
-    greeting = 'Good Afternoon';
-  } else if (currentHour >= 17) {
-    greeting = 'Good Evening';
-  }
+
 
   const quickActions = [
     {
@@ -67,7 +74,7 @@ export function StaffDashboardHome({
       iconColor: 'text-blue-400',
       bgColor: 'bg-blue-500/20',
       buttonText: 'Open Payment Verification',
-      onClick: () => alert('Payment Verification - Coming Soon!'),
+      onClick: () => onNavigate?.('verify-payments'),
     },
     {
       id: 'generate-reports',
@@ -77,7 +84,7 @@ export function StaffDashboardHome({
       iconColor: 'text-purple-400',
       bgColor: 'bg-purple-500/20',
       buttonText: 'Generate Reports',
-      onClick: () => alert('Report Generation - Coming Soon!'),
+      onClick: () => onNavigate?.('reports'),
     },
     {
       id: 'attendance-management',
@@ -87,22 +94,22 @@ export function StaffDashboardHome({
       iconColor: 'text-green-400',
       bgColor: 'bg-green-500/20',
       buttonText: 'Open Attendance Manager',
-      onClick: () => alert('Attendance Management - Coming Soon!'),
+      onClick: () => onNavigate?.('attendance-management'),
     },
   ];
 
   const stats = [
     {
       title: 'Payments Verified',
-      value: '248',
-      subtitle: 'This month',
+      value: statsData?.paymentsVerified.toString() || '0',
+      subtitle: 'Approved today',
       icon: CheckCircle,
       iconColor: 'text-green-400',
       bgColor: 'bg-green-500/20',
     },
     {
       title: 'Pending Approvals',
-      value: '12',
+      value: statsData?.pendingApprovals.toString() || '0',
       subtitle: 'Awaiting review',
       icon: Clock,
       iconColor: 'text-orange-400',
@@ -110,16 +117,16 @@ export function StaffDashboardHome({
     },
     {
       title: 'Reports Generated',
-      value: '156',
-      subtitle: 'Last 30 days',
+      value: statsData?.reportsGenerated.toString() || '0',
+      subtitle: 'Logs recorded today',
       icon: BarChart3,
       iconColor: 'text-purple-400',
       bgColor: 'bg-purple-500/20',
     },
     {
       title: 'Attendance Today',
-      value: '342',
-      subtitle: 'Students marked present',
+      value: statsData?.attendanceToday.toString() || '0',
+      subtitle: 'Scans & manual entries',
       icon: ClipboardCheck,
       iconColor: 'text-blue-400',
       bgColor: 'bg-blue-500/20',
@@ -129,9 +136,6 @@ export function StaffDashboardHome({
   return (
     <DashboardLayout
       userRole="staff"
-      userName={profile ? `${profile.firstName} ${profile.lastName}` : 'Staff Member'}
-      userInitials={profile ? `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}` : 'ST'}
-      profilePhoto={profile?.profilePhoto}
       notificationCount={5}
       breadcrumb="Dashboard"
       activePage="dashboard"
@@ -141,7 +145,7 @@ export function StaffDashboardHome({
       {/* Greeting Banner */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">
-          {greeting}, {profile?.firstName || 'Staff Member'}
+          {getGreeting()}, {profile?.firstName || 'Staff Member'}
         </h1>
         <p className="text-white/60 text-lg">
           Welcome to your staff dashboard

@@ -133,8 +133,14 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ message: 'Registration successful! Please check your email for verification.' });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Registration error details:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      stack: error.stack
+    });
+    res.status(500).json({ error: error.message || 'Registration failed due to server error.' });
   }
 });
 

@@ -27,7 +27,7 @@ router.get('/admin/financial', verifyToken, verifyAdmin, async (req, res) => {
     // 1. Approved payments (revenue collected)
     let approvedQuery = supabaseAdmin
       .from('payments')
-      .select('amount, submitted_at, class_id, payment_method, classes(title, subject, price)')
+      .select('amount, submitted_at, class_id, payment_method, classes(title, subject, price), profiles!student_id(first_name, last_name, student_id)')
       .eq('status', 'approved');
 
     if (class_id && class_id !== 'all') approvedQuery = approvedQuery.eq('class_id', class_id);
@@ -95,6 +95,12 @@ router.get('/admin/financial', verifyToken, verifyAdmin, async (req, res) => {
         { name: 'Class Fees', value: totalRevenue, color: '#22D3EE' },
         { name: 'Study Packs', value: studyPackRevenue, color: '#A855F7' },
       ],
+      transactions: filteredPayments.map(p => ({
+        studentId: p.profiles?.student_id || 'UNKNOWN',
+        name: `${p.profiles?.first_name || ''} ${p.profiles?.last_name || ''}`.trim() || 'Unknown',
+        amount: p.amount || 0,
+        payDate: p.submitted_at || new Date().toISOString(),
+      })),
     });
   } catch (error) {
     console.error('ADMIN FINANCIAL REPORT ERROR:', error);
@@ -109,6 +115,8 @@ router.get('/admin/financial', verifyToken, verifyAdmin, async (req, res) => {
  */
 router.get('/admin/enrollment-growth', verifyToken, verifyAdmin, async (req, res) => {
   try {
+    const { role = 'all', start, end } = req.query;
+
     const { data: enrollments, error } = await supabaseAdmin
       .from('enrollments')
       .select('created_at')
@@ -138,9 +146,27 @@ router.get('/admin/enrollment-growth', verifyToken, verifyAdmin, async (req, res
       .select('*', { count: 'exact', head: true })
       .eq('role', 'student');
 
+    // Fetch user details for table
+    let usersQuery = supabaseAdmin
+      .from('profiles')
+      .select('id, student_id, first_name, last_name, email, role, created_at')
+      .order('created_at', { ascending: false });
+
+    if (role !== 'all') {
+      usersQuery = usersQuery.eq('role', role);
+    }
+    
+    // Optional date range filter for table
+    if (start) usersQuery = usersQuery.gte('created_at', start);
+    if (end) usersQuery = usersQuery.lte('created_at', end + 'T23:59:59');
+
+    const { data: users, error: usersErr } = await usersQuery;
+    if (usersErr) throw usersErr;
+
     res.json({
       trend: Object.values(monthMap),
       totalStudents: totalStudents || 0,
+      users: users || [],
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -148,58 +174,122 @@ router.get('/admin/enrollment-growth', verifyToken, verifyAdmin, async (req, res
 });
 
 /**
- * @route   GET /api/reports/admin/revenue-leakage
- * @desc    Students enrolled in classes but with pending/rejected payments
+ * @route   GET /api/reports/admin/payout-preview
+ * @desc    Preview teacher payout (Gross, Commission, Net)
  * @access  Private (Admin)
  */
-router.get('/admin/revenue-leakage', verifyToken, verifyAdmin, async (req, res) => {
+router.get('/admin/payout-preview', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { class_id } = req.query;
+    const { teacher_id, class_id, start, end } = req.query;
 
-    // Find enrollments where the latest payment is NOT approved
-    let enrollQuery = supabaseAdmin
-      .from('enrollments')
-      .select('student_id, class_id, created_at, classes(title, subject, price), profiles!student_id(first_name, last_name, email, student_id)')
-      .order('created_at', { ascending: false });
-
-    if (class_id && class_id !== 'all') enrollQuery = enrollQuery.eq('class_id', class_id);
-
-    const { data: enrollments, error: enrollErr } = await enrollQuery;
-
-
-    if (enrollErr) throw enrollErr;
-
-    // For each enrollment, check payment status
-    const leakage = [];
-    for (const enr of (enrollments || [])) {
-      const { data: payment } = await supabaseAdmin
-        .from('payments')
-        .select('status, amount, submitted_at')
-        .eq('student_id', enr.student_id)
-        .eq('class_id', enr.class_id)
-        .order('submitted_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (payment && (payment.status === 'pending' || payment.status === 'rejected')) {
-        leakage.push({
-          studentName: `${enr.profiles?.first_name || ''} ${enr.profiles?.last_name || ''}`.trim(),
-          studentId: enr.profiles?.student_id || 'N/A',
-          email: enr.profiles?.email || '',
-          className: enr.classes?.title || 'Unknown',
-          subject: enr.classes?.subject || '',
-          classPrice: enr.classes?.price || 0,
-          paidAmount: payment.amount || 0,
-          paymentStatus: payment.status,
-          enrolledDate: enr.created_at,
-          submittedAt: payment.submitted_at,
-        });
-      }
+    if (!teacher_id || teacher_id === 'all') {
+       return res.json({ grossRevenue: 0, instituteCommission: 0, netPayout: 0, classBreakdown: [] });
     }
 
-    const totalLeakage = leakage.reduce((sum, l) => sum + (l.classPrice - l.paidAmount), 0);
+    // Find classes taught by this teacher
+    let classesQuery = supabaseAdmin
+      .from('classes')
+      .select('id, title, price, commission_percentage')
+      .eq('teacher_id', teacher_id);
 
-    res.json({ leakage, totalLeakage });
+    if (class_id && class_id !== 'all') {
+      classesQuery = classesQuery.eq('id', class_id);
+    }
+
+    const { data: teacherClasses, error: classesErr } = await classesQuery;
+    if (classesErr) throw classesErr;
+
+    if (!teacherClasses || teacherClasses.length === 0) {
+      return res.json({ grossRevenue: 0, instituteCommission: 0, netPayout: 0, classBreakdown: [] });
+    }
+
+    const classIds = teacherClasses.map(c => c.id);
+
+    // Sum all approved payments for these classes in the period
+    let paymentsQuery = supabaseAdmin
+      .from('payments')
+      .select('amount, class_id')
+      .eq('status', 'approved')
+      .in('class_id', classIds);
+
+    if (start) paymentsQuery = paymentsQuery.gte('submitted_at', start);
+    if (end) paymentsQuery = paymentsQuery.lte('submitted_at', end + 'T23:59:59');
+
+    const { data: payments, error: paymentsErr } = await paymentsQuery;
+    if (paymentsErr) throw paymentsErr;
+
+    let grossRevenue = 0;
+    let instituteCommission = 0;
+    const classBreakdown = teacherClasses.map(c => ({
+      id: c.id,
+      title: c.title,
+      studentCount: 0,
+      classRevenue: 0,
+      commissionRate: c.commission_percentage || 20.0
+    }));
+
+    (payments || []).forEach(p => {
+      const cls = classBreakdown.find(c => c.id === p.class_id);
+      if (cls) {
+        cls.studentCount++;
+        cls.classRevenue += (p.amount || 0);
+        grossRevenue += (p.amount || 0);
+        instituteCommission += (p.amount || 0) * (cls.commissionRate / 100);
+      }
+    });
+
+    // Remove redundant items from breakdown
+    const populatedBreakdown = classBreakdown.filter(c => c.studentCount > 0);
+
+    res.json({
+      grossRevenue,
+      instituteCommission,
+      netPayout: grossRevenue - instituteCommission,
+      classBreakdown: populatedBreakdown
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/reports/admin/payouts
+ * @desc    Submit and log a teacher payout
+ * @access  Private (Admin)
+ */
+router.post('/admin/payouts', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { teacher_id, class_id, start, end, gross_revenue, institute_commission, other_deductions, net_payout, notes } = req.body;
+
+    const { data: payout, error } = await supabaseAdmin
+      .from('payouts')
+      .insert({
+        teacher_id,
+        class_id: class_id === 'all' ? null : class_id,
+        period_start: start,
+        period_end: end,
+        gross_revenue,
+        institute_commission,
+        other_deductions: other_deductions || 0,
+        net_payout,
+        notes,
+        status: 'Paid'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Send notification to teacher
+    await supabaseAdmin.from('notifications').insert({
+      recipient_id: teacher_id,
+      sender_id: req.user.id,
+      title: '💰 Payout Processed',
+      message: `Your payout for the period ${start} to ${end} has been processed. Net Amount: LKR ${net_payout.toLocaleString()}`,
+      type: 'System',
+    });
+
+    res.json(payout);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -216,12 +306,22 @@ router.get('/admin/security-logs', verifyToken, verifyAdmin, async (req, res) =>
     const { action_type, start, end } = req.query;
 
     let query = supabaseAdmin
-      .from('audit_logs')
+      .from('system_logs')
       .select('*, profiles:user_id(first_name, last_name, role, email)')
       .order('created_at', { ascending: false })
       .limit(200);
 
-    if (action_type && action_type !== 'all') query = query.eq('action_type', action_type);
+    // If 'action_type' filter is set but we are looking at purely high-level actions/modules, handle log type
+    // The user has 'action_type' which from UI was something like PAYMENT_APPROVE, now it might be "Created Payments resource" or "Audit"
+    // Let's assume action_type from UI can be "Activity" or "Audit" as log_type filter from unified dropdown
+    if (action_type && action_type !== 'all') {
+      if (action_type === 'Activity' || action_type === 'Audit') {
+        query = query.eq('log_type', action_type);
+      } else {
+        query = query.eq('action_type', action_type);
+      }
+    }
+
     if (start) query = query.gte('created_at', start);
     if (end) query = query.lte('created_at', end + 'T23:59:59');
 

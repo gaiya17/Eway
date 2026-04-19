@@ -178,8 +178,6 @@ export function TeacherStudyPacksPage({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Mr. Silva"
-      userInitials="MS"
       notificationCount={8}
       breadcrumb="Study Packs"
       activePage="teacher-study-packs"

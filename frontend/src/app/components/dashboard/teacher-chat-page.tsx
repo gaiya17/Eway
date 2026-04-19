@@ -110,7 +110,7 @@ export function TeacherChatPage({ onLogout, onNavigate }: TeacherChatPageProps) 
   });
 
   return (
-    <DashboardLayout userRole="teacher" userName="Teacher" userInitials="T"
+    <DashboardLayout userRole="teacher"
       notificationCount={totalUnread} breadcrumb="Chat with Students"
       activePage="teacher-chat" onNavigate={onNavigate} onLogout={onLogout}>
 

@@ -366,8 +366,6 @@ export function TeacherAssignmentsPage({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Mr. Silva"
-      userInitials="MS"
       notificationCount={8}
       breadcrumb={
         viewMode === 'submissions' && selectedAssignment

@@ -451,7 +451,7 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
   const totalMaterials = (classData?.sections || []).reduce((sum, s) => sum + (s.class_materials?.length || 0), 0);
 
   if (isLoading) return (
-    <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+    <DashboardLayout userRole="student" notificationCount={0}
       breadcrumb="Loading..." activePage="classes" onNavigate={onNavigate} onLogout={onLogout}>
       <div className="min-h-[500px] flex items-center justify-center">
         <div className="text-center">
@@ -463,7 +463,7 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
   );
 
   if (error) return (
-    <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+    <DashboardLayout userRole="student" notificationCount={0}
       breadcrumb="Access Denied" activePage="classes" onNavigate={onNavigate} onLogout={onLogout}>
       <div className="min-h-[500px] flex items-center justify-center">
         <GlassCard className="p-12 text-center max-w-md mx-auto">
@@ -483,7 +483,7 @@ export function StudentClassViewPage({ classId, onLogout, onNavigate }: StudentC
   const teacher = classData.profiles;
 
   return (
-    <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+    <DashboardLayout userRole="student" notificationCount={0}
       breadcrumb={classData.title} activePage="classes" onNavigate={onNavigate} onLogout={onLogout}>
       <div className="space-y-6">
 

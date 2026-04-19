@@ -112,7 +112,7 @@ export function VerifyPaymentsPage({ onLogout, onNavigate }: VerifyPaymentsPageP
   };
 
   return (
-    <DashboardLayout userRole="staff" userName="Staff" userInitials="ST"
+    <DashboardLayout userRole="staff"
       notificationCount={stats.pending} breadcrumb="Verify Payments"
       activePage="verify-payments" onNavigate={onNavigate} onLogout={onLogout}>
 

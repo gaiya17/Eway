@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '@/api/api-client';
 import { GlassCard } from './glass-card';
-import { Mail, Lock, Eye, EyeOff, User, Phone, Calendar, ArrowRight, Check, X } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Phone, Calendar, ArrowRight, ArrowLeft, Check, X } from 'lucide-react';
 import ewayLogo from 'figma:asset/5839cd6ca5cc93c08af5158653805fc6c7e77232.png';
 
 /**
@@ -271,6 +271,17 @@ export function RegistrationPage({ onBackToHome, onLoginClick }: RegistrationPag
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-16">
+          {/* Back Button */}
+          {onBackToHome && (
+            <button 
+              onClick={onBackToHome}
+              className="absolute top-8 left-8 flex items-center gap-2 text-white/50 hover:text-white transition-colors z-10"
+            >
+              <ArrowLeft size={20} />
+              Back to Homepage
+            </button>
+          )}
+
           {/* Logo */}
           <div className="flex items-center gap-3 mb-12">
             <div className="w-16 h-16 rounded-full bg-black flex items-center justify-center overflow-hidden transition-transform hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer">

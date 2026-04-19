@@ -16,19 +16,23 @@ const DARK_BG: [number, number, number] = [11, 15, 26];
  */
 export function exportToPDF(
   title: string,
-  subtitle: string,
+  subtitle: string | string[],
   headers: string[],
   rows: (string | number)[][],
   chartImageBase64?: string,
-  filename?: string
+  filename?: string,
+  metadataBlock?: { title: string, items: { label: string, value: string }[] }
 ): void {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const now = new Date();
 
+  const subtitleOffset = Array.isArray(subtitle) ? subtitle.length * 4.5 : 4.5;
+  const extraHeaderHeight = Array.isArray(subtitle) && subtitle.length > 1 ? (subtitle.length - 1) * 4.5 : 0;
+
   // ── Header Band ──
   doc.setFillColor(...DARK_BG);
-  doc.rect(0, 0, pageWidth, 38, 'F');
+  doc.rect(0, 0, pageWidth, 38 + extraHeaderHeight, 'F');
 
   doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
@@ -50,15 +54,39 @@ export function exportToPDF(
   doc.setTextColor(180, 180, 180);
   doc.setFont('helvetica', 'normal');
   doc.text(subtitle, pageWidth - 14, 22, { align: 'right' });
-  doc.text(`Generated: ${now.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`, pageWidth - 14, 28, { align: 'right' });
+  doc.text(`Generated: ${now.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`, pageWidth - 14, 22 + subtitleOffset, { align: 'right' });
 
-  let currentY = 46;
+  let currentY = 46 + extraHeaderHeight;
 
   // ── Optional Chart Image ──
   if (chartImageBase64) {
     const imgH = 65;
     doc.addImage(chartImageBase64, 'PNG', 14, currentY, pageWidth - 28, imgH);
     currentY += imgH + 8;
+  }
+
+  // ── Metadata Block ──
+  if (metadataBlock) {
+    doc.setFontSize(14);
+    doc.setTextColor(34, 211, 238); // Cyan
+    doc.setFont('helvetica', 'bold');
+    doc.text(metadataBlock.title, 14, currentY);
+    currentY += 8;
+
+    doc.setFontSize(10);
+    metadataBlock.items.forEach(item => {
+      doc.setTextColor(100, 110, 140);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${item.label}:`, 14, currentY);
+      
+      const labelWidth = doc.getTextWidth(`${item.label}:`) + 2;
+      doc.setTextColor(40, 50, 70);
+      doc.setFont('helvetica', 'normal');
+      doc.text(item.value, 14 + labelWidth, currentY);
+      currentY += 6;
+    });
+
+    currentY += 8; // Extra space before table
   }
 
   // ── Data Table ──

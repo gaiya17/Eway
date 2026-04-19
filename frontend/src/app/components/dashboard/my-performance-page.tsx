@@ -181,8 +181,6 @@ export function MyPerformancePage({
     <>
       <DashboardLayout
         userRole="student"
-        userName={profile?.first_name || 'Student'}
-        userInitials={profile ? `${profile.first_name?.[0] || ''}${profile.last_name?.[0] || ''}` : 'ST'}
         notificationCount={5}
         breadcrumb="My Performance"
         activePage="performance"

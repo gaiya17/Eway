@@ -22,13 +22,14 @@ function auditLog(actionType, getDetails) {
         const details = getDetails ? getDetails(req, body) : {};
         const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
 
-        await supabaseAdmin.from('audit_logs').insert({
+        await supabaseAdmin.from('system_logs').insert({
           user_id: req.user?.id || null,
           action_type: actionType,
-          target_entity: details.target_entity || req.params?.id ? `${actionType.split('_')[0].toLowerCase()}s:${req.params.id}` : null,
-          old_value: details.old_value || null,
-          new_value: details.new_value || null,
+          entity_name: details.target_entity || req.params?.id ? `${actionType.split('_')[0].toLowerCase()}s:${req.params.id}` : 'System',
+          old_data: details.old_value || null,
+          new_data: details.new_value || null,
           ip_address: ip,
+          log_type: 'Audit'
         });
       } catch (err) {
         // Never let audit logging crash the response

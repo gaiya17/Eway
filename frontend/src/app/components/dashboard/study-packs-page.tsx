@@ -89,8 +89,6 @@ export function StudyPacksPage({ onLogout, onNavigate }: StudyPacksPageProps) {
     <>
       <DashboardLayout
         userRole="student"
-        userName="Gayantha"
-        userInitials="GP"
         notificationCount={5}
         breadcrumb="Study Packs"
         activePage="study-packs"

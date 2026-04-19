@@ -27,7 +27,7 @@ interface Notification {
 
 interface NotificationsPageProps {
   userRole: string;
-  userName: string;
+  userName?: string;
   onLogout?: () => void;
   onNavigate?: (page: string) => void;
 }
@@ -123,7 +123,6 @@ export function NotificationsPage({ userRole, userName, onLogout, onNavigate }: 
   return (
     <DashboardLayout 
       userRole={userRole as any} 
-      userName={userName} 
       activePage="notifications"
       onNavigate={onNavigate}
       onLogout={onLogout}

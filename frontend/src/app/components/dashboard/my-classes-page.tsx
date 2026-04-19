@@ -136,7 +136,7 @@ export function MyClassesPage({ onLogout, onNavigate }: MyClassesPageProps) {
 
   return (
     <>
-      <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+      <DashboardLayout userRole="student" notificationCount={0}
         breadcrumb="My Classes" activePage="classes" onNavigate={onNavigate} onLogout={onLogout}>
         <div className="space-y-8">
           {/* Header */}

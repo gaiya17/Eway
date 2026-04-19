@@ -4,6 +4,7 @@ import { GlassCard } from '../glass-card';
 import { AIChat } from './ai-chat';
 import apiClient from '@/api/api-client';
 import { DemoGuide } from './demo-guide';
+import { getGreeting as getGreetingHelper } from '../../utils/helpers';
 import {
   BookOpen, QrCode, FileText, CreditCard, TrendingUp, Clock,
   Video, CheckCircle, Calendar, DollarSign, Award, Target,
@@ -141,12 +142,7 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
     fetchDashboardData();
   }, []);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
-  };
+
 
   const quickActions = [
     {
@@ -282,9 +278,6 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
 
       <DashboardLayout
         userRole="student"
-        userName={profile?.firstName || 'Student'}
-        userInitials={profile ? `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}` : 'ST'}
-        profilePhoto={profile?.profilePhoto}
         notificationCount={5}
         breadcrumb="Dashboard"
         activePage="dashboard"
@@ -298,7 +291,7 @@ export function StudentDashboardHome({ onLogout, onNavigate }: StudentDashboardH
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <h1 className="text-4xl font-bold text-white mb-2">
-                  {getGreeting()}, {profile?.firstName || 'Student'} 👋
+                  {getGreetingHelper()}, {profile?.firstName || 'Student'} 👋
                 </h1>
                 <p className="text-white/70 text-lg mb-6">
                   Ready to continue your learning journey?

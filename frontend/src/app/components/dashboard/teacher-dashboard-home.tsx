@@ -2,6 +2,7 @@ import React from 'react';
 import { DashboardLayout } from './dashboard-layout';
 import { GlassCard } from '../glass-card';
 import apiClient from '@/api/api-client';
+import { getGreeting as getGreetingHelper } from '../../utils/helpers';
 import {
   BookOpen,
   FileText,
@@ -145,12 +146,7 @@ export function TeacherDashboardHome({
     fetchData();
   }, []);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
-  };
+
 
   const getActivityStyles = (type: string) => {
     switch (type) {
@@ -263,11 +259,7 @@ export function TeacherDashboardHome({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName={profile ? `${profile.firstName} ${profile.lastName}` : 'Teacher'}
-      userInitials={profile ? `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}` : 'TR'}
-      profilePhoto={profile?.profilePhoto}
-      notificationCount={5}
-      breadcrumb="Teacher Dashboard"
+      breadcrumb="Overview"
       activePage="dashboard"
       onNavigate={onNavigate}
       onLogout={onLogout}
@@ -278,7 +270,7 @@ export function TeacherDashboardHome({
         <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
           <div className="flex-1 text-center md:text-left">
             <h1 className="text-4xl font-bold text-white mb-2">
-              {getGreeting()}, {profile?.firstName || 'Teacher'}! 🎓
+              {getGreetingHelper()}, {profile?.firstName || 'Teacher'}! 🎓
             </h1>
             <p className="text-white/60 text-lg max-w-2xl">
               You have <span className="text-white font-bold">{dashboardData?.upcomingSessions?.filter((s:any) => s.isToday).length || 0} classes</span> scheduled for today. Ready to inspire your students?

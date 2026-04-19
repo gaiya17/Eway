@@ -289,6 +289,36 @@ router.get('/approved', async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/classes/public
+ * @desc    Get public catalog of classes mapped to teaser metadata
+ * @access  Public
+ */
+router.get('/public', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('classes')
+      .select('id, title, subject, thumbnail_url, profiles:teacher_id(first_name, last_name)')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    // Map data to match simpler structure
+    const mapped = (data || []).map(cls => ({
+      id: cls.id,
+      title: cls.title,
+      subject: cls.subject,
+      thumbnail_url: cls.thumbnail_url,
+      teacher_name: cls.profiles ? `Prof. ${cls.profiles.first_name} ${cls.profiles.last_name}` : 'Unknown Teacher'
+    }));
+
+    res.json(mapped);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 /**
  * @route   GET /api/classes/today
@@ -422,6 +452,31 @@ router.patch('/:id/status', verifyToken, verifyAdmin, async (req, res) => {
     res.json(classData);
   } catch (error) {
     console.error('Status update error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+/**
+ * @route   PATCH /api/classes/:id/commission
+ * @desc    Update the institute commission percentage for a class
+ * @access  Private (Admin only)
+ */
+router.patch('/:id/commission', verifyToken, verifyAdmin, async (req, res) => {
+  const { commission_percentage } = req.body;
+  const { id } = req.params;
+
+  try {
+    const { data: classData, error } = await supabaseAdmin
+      .from('classes')
+      .update({ commission_percentage })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(classData);
+  } catch (error) {
+    console.error('Commission update error:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });

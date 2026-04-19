@@ -126,7 +126,7 @@ export function TeacherTutorialDetailsPage({
   if (!tutorialId || tutorialId === 'undefined') {
     return (
       <DashboardLayout
-        userRole="teacher" userName="Teacher" userInitials="T"
+        userRole="teacher"
         breadcrumb="Free Tutorial / Error" activePage="teacher-tutorials"
         onNavigate={onNavigate} onLogout={onLogout}
       >
@@ -150,8 +150,6 @@ export function TeacherTutorialDetailsPage({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Mr. Silva"
-      userInitials="MS"
       notificationCount={8}
       breadcrumb={`Free Tutorial / ${tutorial?.title || 'Details'}`}
       activePage="teacher-tutorials"

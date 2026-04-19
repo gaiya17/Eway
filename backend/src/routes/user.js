@@ -619,4 +619,55 @@ router.get('/student/performance', verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/users/staff/dashboard
+ * @desc    Get aggregated dashboard data for staff (Stats, Operations Recap)
+ * @access  Private (Staff/Admin)
+ */
+router.get('/staff/dashboard', verifyToken, verifyStaff, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const dayStart = `${today}T00:00:00`;
+    const dayEnd = `${today}T23:59:59`;
+
+    const [
+      { count: approvedToday },
+      { count: pendingTotal },
+      { count: attendanceToday },
+      { count: logsToday }
+    ] = await Promise.all([
+      // 1. Payments approved today
+      supabaseAdmin.from('payments').select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
+         .gte('reviewed_at', dayStart)
+         .lte('reviewed_at', dayEnd),
+      
+      // 2. Total pending payments
+      supabaseAdmin.from('payments').select('*', { count: 'exact', head: true })
+        .eq('status', 'pending'),
+
+      // 3. Attendance records for today
+      supabaseAdmin.from('attendance').select('*', { count: 'exact', head: true })
+        .eq('session_date', today),
+
+      // 4. System activity logs for today
+      supabaseAdmin.from('system_logs').select('*', { count: 'exact', head: true })
+        .gte('created_at', dayStart)
+        .lte('created_at', dayEnd)
+    ]);
+
+    res.json({
+      stats: {
+        paymentsVerified: approvedToday || 0,
+        pendingApprovals: pendingTotal || 0,
+        reportsGenerated: logsToday || 0, // Using system logs as a proxy for operational work
+        attendanceToday: attendanceToday || 0
+      }
+    });
+  } catch (error) {
+    console.error('STAFF DASHBOARD ERROR:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

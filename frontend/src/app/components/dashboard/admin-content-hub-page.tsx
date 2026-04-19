@@ -44,6 +44,7 @@ export function AdminContentHubPage({ onLogout, onNavigate }: { onLogout?: () =>
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [commissionRate, setCommissionRate] = useState<number>(20);
   const [pendingCounts, setPendingCounts] = useState<{ classes: number; studyPacks: number; tutorials: number }>({
     classes: 0,
     studyPacks: 0,
@@ -91,6 +92,7 @@ export function AdminContentHubPage({ onLogout, onNavigate }: { onLogout?: () =>
   const handleSelectItem = async (item: any) => {
     setSelectedItem(item);
     setRejectionReason('');
+    setCommissionRate(item.commission_percentage || 20);
     if (activeTab !== 'classes') {
       setIsDetailLoading(true);
       try {
@@ -128,6 +130,23 @@ export function AdminContentHubPage({ onLogout, onNavigate }: { onLogout?: () =>
     } catch (error) {
       console.error('Status update error:', error);
       alert('Failed to update status.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUpdateCommission = async () => {
+    if (!selectedItem) return;
+    setIsProcessing(true);
+    try {
+      await apiClient.patch(`/classes/${selectedItem.id}/commission`, { commission_percentage: commissionRate });
+      alert('Commission rate updated successfully!');
+      // Update local item
+      setSelectedItem({ ...selectedItem, commission_percentage: commissionRate });
+      fetchData(); // refresh list
+    } catch (error) {
+      console.error('Commission update error:', error);
+      alert('Failed to update commission rate.');
     } finally {
       setIsProcessing(false);
     }
@@ -320,18 +339,42 @@ export function AdminContentHubPage({ onLogout, onNavigate }: { onLogout?: () =>
                     )}
                   </div>
 
-                  {/* Class Specific: Schedule */}
+                  {/* Class Specific: Schedule & Commission */}
                   {activeTab === 'classes' && (
-                    <div className="space-y-3">
-                      <h4 className="text-white font-bold text-sm flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Calendar size={16} className="text-blue-400" /> Schedule
-                      </h4>
-                      {selectedItem.schedules?.map((s: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between text-xs text-white/60 p-2 bg-white/5 rounded-lg">
-                          <span>{s.day}</span>
-                          <span>{s.start_time} - {s.end_time}</span>
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <h4 className="text-white font-bold text-sm flex items-center gap-2 border-b border-white/5 pb-2">
+                          <Calendar size={16} className="text-blue-400" /> Schedule
+                        </h4>
+                        {selectedItem.schedules?.map((s: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between text-xs text-white/60 p-2 bg-white/5 rounded-lg">
+                            <span>{s.day}</span>
+                            <span>{s.start_time} - {s.end_time}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-4 border-t border-white/10 mt-4">
+                        <label className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2 block">Institute Commission (%)</label>
+                        <div className="flex items-center gap-3 relative">
+                          <input 
+                            type="number" 
+                            min="0"
+                            max="100"
+                            value={commissionRate} 
+                            onChange={(e) => setCommissionRate(Number(e.target.value))}
+                            className="w-24 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-cyan-400"
+                          />
+                          <button 
+                            onClick={handleUpdateCommission}
+                            disabled={isProcessing}
+                            className="px-4 py-2 rounded-xl bg-cyan-500/10 text-cyan-400 font-bold hover:bg-cyan-500/20 transition-all border border-cyan-500/20 text-sm flex items-center gap-2"
+                          >
+                            {isProcessing ? <Loader2 className="animate-spin" size={14} /> : 'Save Rate'}
+                          </button>
                         </div>
-                      ))}
+                        <p className="text-white/40 text-[10px] mt-2">Adjust the commission cut for this class. Used in the Payout Engine.</p>
+                      </div>
                     </div>
                   )}
 

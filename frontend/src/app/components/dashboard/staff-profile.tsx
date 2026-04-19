@@ -136,9 +136,6 @@ export function StaffProfile({ onLogout, onNavigate }: StaffProfileProps) {
   return (
     <DashboardLayout
       userRole="staff"
-      userName={`${formData.firstName} ${formData.lastName}`}
-      userInitials={getInitials(formData.firstName, formData.lastName)}
-      profilePhoto={formData.profilePhoto}
       notificationCount={0}
       breadcrumb="My Profile"
       activePage="profile"

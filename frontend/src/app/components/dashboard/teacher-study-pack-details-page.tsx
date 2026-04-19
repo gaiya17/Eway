@@ -122,8 +122,6 @@ export function TeacherStudyPackDetailsPage({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Mr. Silva"
-      userInitials="MS"
       notificationCount={8}
       breadcrumb={`Study Pack / ${pack?.title || 'Details'}`}
       activePage="teacher-study-packs"

@@ -19,6 +19,7 @@ import {
   Sparkles,
   Eye,
   Calendar,
+  Clock,
 } from 'lucide-react';
 
 interface PurchaseClassesPageProps {
@@ -47,6 +48,11 @@ interface CourseData {
     first_name: string;
     last_name: string;
   };
+  schedules?: Array<{
+    day: string;
+    start_time: string;
+    end_time: string;
+  }>;
 }
 
 export function PurchaseClassesPage({ onLogout, onNavigate }: PurchaseClassesPageProps) {
@@ -60,6 +66,30 @@ export function PurchaseClassesPage({ onLogout, onNavigate }: PurchaseClassesPag
   const [showAddedNotification, setShowAddedNotification] = useState(false);
   const [addedCourseName, setAddedCourseName] = useState('');
   const [previewCourse, setPreviewCourse] = useState<CourseData | null>(null);
+
+  // Helper to format time (e.g., 08:30 -> 8:30 AM)
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return timeStr;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
+  // Helper to get recurrence text
+  const getRecurrenceText = (schedules?: any[]) => {
+    if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return 'To be scheduled';
+    const days = Array.from(new Set(schedules.map((s) => s.day)));
+    return `Every ${days.join(', ')}`;
+  };
+
+  // Helper to get time slot text
+  const getTimeSlotText = (schedules?: any[]) => {
+    if (!schedules || !Array.isArray(schedules) || schedules.length === 0) return 'Time TBD';
+    const slot = schedules[0];
+    return `${formatTime(slot.start_time)} - ${formatTime(slot.end_time)}`;
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -201,7 +231,8 @@ export function PurchaseClassesPage({ onLogout, onNavigate }: PurchaseClassesPag
     id: previewCourse.id,
     title: previewCourse.title,
     teacher: `${previewCourse.profiles.first_name} ${previewCourse.profiles.last_name}`,
-    schedule: previewCourse.schedule,
+    schedule: getRecurrenceText(previewCourse.schedules),
+    timeSlot: getTimeSlotText(previewCourse.schedules),
     description: previewCourse.description,
     duration: previewCourse.duration,
     studentsEnrolled: 0,
@@ -219,8 +250,6 @@ export function PurchaseClassesPage({ onLogout, onNavigate }: PurchaseClassesPag
     <>
       <DashboardLayout
         userRole="student"
-        userName="Student"
-        userInitials="ST"
         notificationCount={5}
         breadcrumb="Purchase Classes"
         activePage="purchase"
@@ -417,14 +446,20 @@ export function PurchaseClassesPage({ onLogout, onNavigate }: PurchaseClassesPag
                         <span>{course.profiles.first_name} {course.profiles.last_name}</span>
                       </div>
 
-                      {/* Schedule */}
-                      <div className="flex items-center gap-2 text-white/70 text-sm">
-                        <Calendar size={16} className="text-cyan-400" />
-                        <span>{course.schedule}</span>
+                      {/* Schedule - Day & Time */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-white/70 text-sm">
+                          <Calendar size={16} className="text-cyan-400" />
+                          <span className="font-medium">{getRecurrenceText(course.schedules)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-white/70 text-sm">
+                          <Clock size={16} className="text-cyan-400" />
+                          <span className="font-medium">{getTimeSlotText(course.schedules)}</span>
+                        </div>
                       </div>
 
                       {/* Features List (Mocked) */}
-                      <div className="pt-2 space-y-2">
+                      <div className="pt-2 space-y-2 border-t border-white/10">
                         <div className="flex items-center gap-2 text-white/60 text-sm">
                           <Check size={16} className="text-green-400" />
                           <span>Live Sessions & Recordings</span>

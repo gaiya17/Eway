@@ -136,8 +136,6 @@ export function TeacherProfilePage({
     <>
       <DashboardLayout
         userRole="student"
-        userName="Gayantha"
-        userInitials="GP"
         notificationCount={5}
         breadcrumb="Teachers / Profile"
         activePage="teachers"

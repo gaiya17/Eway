@@ -140,7 +140,7 @@ export function ChatWithTeacherPage({ onLogout, onNavigate, teacherData }: ChatW
 
   return (
     <>
-      <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0}
+      <DashboardLayout userRole="student" notificationCount={0}
         breadcrumb="Chat" activePage="chat" onNavigate={onNavigate} onLogout={onLogout}>
         <div className="h-[calc(100vh-140px)] flex gap-6">
           {/* LEFT — Conversations List */}

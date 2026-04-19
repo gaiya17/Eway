@@ -176,8 +176,6 @@ export function TeacherAttendancePage({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Teacher Dashboard"
-      userInitials="TD"
       notificationCount={8}
       breadcrumb="Attendance"
       activePage="teacher-attendance"

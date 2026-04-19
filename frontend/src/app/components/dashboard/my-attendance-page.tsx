@@ -60,8 +60,6 @@ export function MyAttendancePage({ onLogout, onNavigate }: { onLogout?: () => vo
   return (
     <DashboardLayout
       userRole="student"
-      userName={profile?.first_name || 'Student'}
-      userInitials={`${profile?.first_name?.[0] || 'S'}${profile?.last_name?.[0] || ''}`}
       notificationCount={5}
       breadcrumb="My Attendance"
       activePage="my-attendance"

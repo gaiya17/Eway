@@ -112,8 +112,6 @@ export function CheckoutPaymentPage({
     return (
       <DashboardLayout
         userRole="student"
-        userName="Gayantha"
-        userInitials="GP"
         notificationCount={5}
         breadcrumb="Checkout / Success"
         activePage="study-packs"
@@ -184,8 +182,6 @@ export function CheckoutPaymentPage({
   return (
     <DashboardLayout
       userRole="student"
-      userName="Gayantha"
-      userInitials="GP"
       notificationCount={5}
       breadcrumb="Checkout"
       activePage="study-packs"

@@ -10,6 +10,7 @@ import { ContactSection } from './components/contact-section';
 import { Footer } from './components/footer';
 import { LoginPage } from './components/login-page';
 import { RegistrationPage } from './components/registration-page';
+import { ExploreCoursesPage } from './components/explore-courses-page';
 import { ForgotPasswordFlow } from './components/forgot-password-flow';
 import { ResetPasswordPage } from './components/reset-password-page';
 import { StudentDashboardHome } from './components/dashboard/student-dashboard-home';
@@ -48,7 +49,6 @@ import { AdminChatbotManagement } from './components/dashboard/admin-chatbot-man
 import { AdminPaymentVerification } from './components/dashboard/admin-payment-verification';
 import { AdminReportGeneration } from './components/dashboard/admin-report-generation';
 import { AdminViewReport } from './components/dashboard/admin-view-report';
-import { AdminActivityLog } from './components/dashboard/admin-activity-log';
 import { AdminMyProfile } from './components/dashboard/admin-my-profile';
 import { StudentClassViewPage } from './components/dashboard/student-class-view-page';
 import { TeacherStudyPacksPage } from './components/dashboard/teacher-study-packs-page';
@@ -59,6 +59,7 @@ import { StudentTutorialPlayerPage } from './components/dashboard/student-tutori
 import { AdminContentHubPage } from './components/dashboard/admin-content-hub-page';
 import { MyAttendancePage } from './components/dashboard/my-attendance-page';
 import { TeacherReportsPage } from './components/dashboard/teacher-reports-page';
+import { AdminGalleryPage } from './components/dashboard/admin-gallery-page';
 import { Toaster } from './components/ui/sonner';
 
 type PageType =
@@ -105,8 +106,8 @@ type PageType =
   | 'admin-notifications'
   | 'admin-report-generation'
   | 'admin-view-report'
-  | 'admin-activity-log'
   | 'admin-my-profile'
+  | 'admin-gallery'
   | 'student-class-view'
   | 'student-tutorial-player'
   | 'teacher-study-packs'
@@ -241,6 +242,10 @@ function App() {
     }
   };
 
+  const handleExploreCoursesClick = () => {
+    setCurrentPage('explore-courses' as PageType);
+  };
+
   /**
    * Specialized Navigation Handlers
    * These manage state-based routing for each user role.
@@ -369,10 +374,10 @@ function App() {
       setCurrentPage('admin-report-generation');
     } else if (page === 'view-report') {
       setCurrentPage('admin-view-report');
-    } else if (page === 'attendance-management' || page === 'attendance') {
-      setCurrentPage('admin-activity-log');
     } else if (page === 'my-profile' || page === 'profile') {
       setCurrentPage('admin-my-profile');
+    } else if (page === 'admin-gallery' || page === 'gallery-management') {
+      setCurrentPage('admin-gallery');
     } else {
       // Fallback to dashboard for unknown admin pages
       setCurrentPage('dashboard-admin');
@@ -386,18 +391,34 @@ function App() {
       
       {currentPage === 'home' && (
         <div>
-          <HeroSection />
-          <AboutSection />
+          <HeroSection 
+            onRegisterClick={handleRegisterClick} 
+            onExploreCoursesClick={handleExploreCoursesClick}
+          />
+          <AboutSection onRegisterClick={handleRegisterClick} />
           <FeaturesSection />
           <WorkProcessSection />
           <GallerySection />
-          <CTASection />
+          <CTASection 
+            onRegisterClick={handleRegisterClick} 
+            onLoginClick={handleLoginClick}
+          />
           <ContactSection />
           <Footer />
         </div>
       )}
-      {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} onRegisterClick={handleRegisterClick} onForgotPasswordClick={() => setCurrentPage('forgot-password')} />}
-      {currentPage === 'register' && <RegistrationPage onLoginClick={handleLoginClick} />}
+      {/* Dynamic public pages */}
+      {currentPage === ('explore-courses' as PageType) && (
+        <div>
+           <Navbar onLoginClick={handleLoginClick} onRegisterClick={handleRegisterClick} />
+           {/* We will load ExploreCoursesPage here! Note we will create it dynamically below. */}
+           <ExploreCoursesPage onLoginClick={handleLoginClick} onBackToHome={() => setCurrentPage('home')} />
+           <Footer />
+        </div>
+      )}
+
+      {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} onRegisterClick={handleRegisterClick} onForgotPasswordClick={() => setCurrentPage('forgot-password')} onBackToHome={() => setCurrentPage('home')} />}
+      {currentPage === 'register' && <RegistrationPage onLoginClick={handleLoginClick} onBackToHome={() => setCurrentPage('home')} />}
       {currentPage === 'forgot-password' && <ForgotPasswordFlow onBackToLogin={handleLoginClick} />}
       {currentPage === 'reset-password' && <ResetPasswordPage onBackToLogin={handleLoginClick} />}
       {currentPage === 'dashboard-student' && (
@@ -485,7 +506,7 @@ function App() {
         <TeacherAttendancePage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
       )}
       {currentPage === 'teacher-notifications' && (
-        <NotificationsPage userRole="teacher" userName="Teacher" onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
+        <NotificationsPage userRole="teacher" onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
       )}
       {currentPage === 'teacher-chat' && (
         <TeacherChatPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
@@ -519,7 +540,7 @@ function App() {
         <ReportsPage onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
       {currentPage === 'staff-notifications' && (
-        <NotificationsPage userRole="staff" userName="Staff" onLogout={handleLogout} onNavigate={handleStaffNavigation} />
+        <NotificationsPage userRole="staff" onLogout={handleLogout} onNavigate={handleStaffNavigation} />
       )}
       {currentPage === 'admin-users' && (
         <AdminUserManagement onLogout={handleLogout} onNavigate={handleAdminNavigation} />
@@ -534,16 +555,13 @@ function App() {
         <AdminPaymentVerification onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-notifications' && (
-        <NotificationsPage userRole="admin" userName="Admin" onLogout={handleLogout} onNavigate={handleAdminNavigation} />
+        <NotificationsPage userRole="admin" onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-report-generation' && (
         <AdminReportGeneration onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-view-report' && (
         <AdminViewReport onLogout={handleLogout} onNavigate={handleAdminNavigation} />
-      )}
-      {currentPage === 'admin-activity-log' && (
-        <AdminActivityLog onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       {currentPage === 'admin-my-profile' && (
         <AdminMyProfile onLogout={handleLogout} onNavigate={handleAdminNavigation} />
@@ -580,6 +598,9 @@ function App() {
       )}
       {currentPage === 'teacher-reports' && (
         <TeacherReportsPage onLogout={handleLogout} onNavigate={handleTeacherNavigation} />
+      )}
+      {currentPage === 'admin-gallery' && (
+        <AdminGalleryPage onLogout={handleLogout} onNavigate={handleAdminNavigation} />
       )}
       <Toaster />
     </div>

@@ -205,9 +205,12 @@ export function TeacherClassesPage({
 
   return (
     <DashboardLayout
-      userRole="teacher" userName="Teacher" userInitials="TR"
+      userRole="teacher"
       notificationCount={classes.filter(c => c.status === 'rejected').length}
-      breadcrumb="My Classes" activePage="teacher-classes" onNavigate={onNavigate} onLogout={onLogout}
+      breadcrumb="My Classes"
+      activePage="teacher-classes"
+      onNavigate={onNavigate}
+      onLogout={onLogout}
     >
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">

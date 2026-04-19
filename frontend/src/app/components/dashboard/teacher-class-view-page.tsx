@@ -685,8 +685,6 @@ const fetchClassDetails = async () => {
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Teacher"
-      userInitials="TR"
       breadcrumb={classData.title}
       activePage="teacher-classes"
       onNavigate={onNavigate}

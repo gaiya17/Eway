@@ -85,8 +85,6 @@ export function SupportPage({ onLogout, onNavigate }: SupportPageProps) {
   return (
     <DashboardLayout
       userRole="student"
-      userName="Gayantha"
-      userInitials="GP"
       notificationCount={5}
       breadcrumb="Support"
       activePage="support"

@@ -83,8 +83,6 @@ export function AllTeachersPage({ onLogout, onNavigate }: AllTeachersPageProps) 
     <>
       <DashboardLayout
         userRole="student"
-        userName="Gayantha"
-        userInitials="GP"
         notificationCount={5}
         breadcrumb="Teachers"
         activePage="teachers"

@@ -2,7 +2,12 @@ import React from 'react';
 import { GlassCard } from './glass-card';
 import { Users, BookOpen, TrendingUp } from 'lucide-react';
 
-export function HeroSection() {
+interface HeroSectionProps {
+  onRegisterClick?: () => void;
+  onExploreCoursesClick?: () => void;
+}
+
+export function HeroSection({ onRegisterClick, onExploreCoursesClick }: HeroSectionProps) {
   return (
     <section
       id="home"
@@ -35,10 +40,16 @@ export function HeroSection() {
               thousands of learners advancing their careers with cutting-edge education technology.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button className="px-8 py-4 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 text-white font-semibold hover:shadow-[0_0_32px_rgba(99,102,241,0.6)] transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={onRegisterClick}
+                className="px-8 py-4 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 text-white font-semibold hover:shadow-[0_0_32px_rgba(99,102,241,0.6)] transition-all duration-300 transform hover:scale-105"
+              >
                 Get Started
               </button>
-              <button className="px-8 py-4 rounded-full border-2 border-white/30 text-white font-semibold backdrop-blur-sm hover:bg-white/10 transition-all duration-300">
+              <button 
+                onClick={onExploreCoursesClick}
+                className="px-8 py-4 rounded-full border-2 border-white/30 text-white font-semibold backdrop-blur-sm hover:bg-white/10 transition-all duration-300"
+              >
                 Explore Courses
               </button>
             </div>

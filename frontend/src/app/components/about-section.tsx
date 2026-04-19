@@ -2,7 +2,11 @@ import React from 'react';
 import { GlassCard } from './glass-card';
 import { CheckCircle } from 'lucide-react';
 
-export function AboutSection() {
+interface AboutSectionProps {
+  onRegisterClick?: () => void;
+}
+
+export function AboutSection({ onRegisterClick }: AboutSectionProps) {
   return (
     <section id="about" className="py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -83,7 +87,10 @@ export function AboutSection() {
               </div>
             </div>
 
-            <button className="mt-4 px-8 py-4 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 text-white font-semibold hover:shadow-[0_0_32px_rgba(99,102,241,0.6)] transition-all duration-300 transform hover:scale-105">
+            <button 
+              onClick={onRegisterClick}
+              className="mt-4 px-8 py-4 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 text-white font-semibold hover:shadow-[0_0_32px_rgba(99,102,241,0.6)] transition-all duration-300 transform hover:scale-105"
+            >
               Join Now
             </button>
           </div>

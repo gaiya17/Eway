@@ -167,7 +167,7 @@ export function StudyPackPreviewPage({
 
   if (isLoading) {
     return (
-      <DashboardLayout userRole="student" userName="Student" userInitials="S" notificationCount={0} breadcrumb="Loading Pack..." activePage="study-packs" onNavigate={onNavigate} onLogout={onLogout}>
+      <DashboardLayout userRole="student" notificationCount={0} breadcrumb="Loading Pack..." activePage="study-packs" onNavigate={onNavigate} onLogout={onLogout}>
         <div className="h-[600px] flex items-center justify-center">
            <Loader2 className="animate-spin text-cyan-400" size={48} />
         </div>
@@ -179,8 +179,6 @@ export function StudyPackPreviewPage({
     <>
       <DashboardLayout
         userRole="student"
-        userName="Gayantha"
-        userInitials="GP"
         notificationCount={5}
         breadcrumb={`${pack.subject} Study Pack`}
         activePage="study-packs"

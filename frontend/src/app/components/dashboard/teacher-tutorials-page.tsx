@@ -174,8 +174,6 @@ export function TeacherTutorialsPage({
   return (
     <DashboardLayout
       userRole="teacher"
-      userName="Mr. Silva"
-      userInitials="MS"
       notificationCount={8}
       breadcrumb="Free Tutorials"
       activePage="teacher-tutorials"

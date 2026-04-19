@@ -27,6 +27,7 @@ interface CoursePreviewModalProps {
     title: string;
     teacher: string;
     schedule: string;
+    timeSlot?: string;
     description?: string;
     duration?: string;
     studentsEnrolled: number;
@@ -167,6 +168,12 @@ export function CoursePreviewModal({
                     <Calendar size={18} className="text-cyan-400" />
                     <span className="text-sm">{course.schedule}</span>
                   </div>
+                  {course.timeSlot && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={18} className="text-cyan-400" />
+                      <span className="text-sm">{course.timeSlot}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <Users size={18} className="text-cyan-400" />
                     <span className="text-sm">{course.studentsEnrolled} Students Enrolled</span>
